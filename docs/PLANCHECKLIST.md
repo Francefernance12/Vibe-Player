@@ -11,21 +11,21 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 1A — Project Scaffold + Backend API
 
-- ⬜ Monorepo structure created (`/client`, `/server`, `/shared`)
-- ⬜ `CLAUDE.md` added to project root
-- ⬜ Express server scaffolded with basic error handling
-- ⬜ `GET /api/health` endpoint — returns `{ status: "ok" }`
-- ⬜ `GET /api/tracks` endpoint — returns list of sample + uploaded tracks
-- ⬜ `POST /api/upload` endpoint — accepts audio file, saves to `/server/uploads/`
-- ⬜ `GET /api/tracks/:id/stream` endpoint — streams audio file by ID
-- ⬜ Sample audio files added to `/server/samples/`
-- ⬜ Jest + Supertest installed and configured
-- ⬜ Test: health check returns 200
-- ⬜ Test: `/api/tracks` returns an array
-- ⬜ Test: upload returns 201 with track metadata
-- ⬜ Test: stream endpoint returns correct audio content-type
-- ⬜ All tests pass: `npm run test:server`
-- ⬜ **Checkpoint**: `curl localhost:3001/api/health` → `{ status: "ok" }`
+- ✅ Monorepo structure created (`/client`, `/server`, `/shared`)
+- ✅ `CLAUDE.md` added to project root
+- ✅ Express server scaffolded with basic error handling
+- ✅ `GET /api/health` endpoint — returns `{ status: "ok" }`
+- ✅ `GET /api/tracks` endpoint — returns list of sample + uploaded tracks
+- ✅ `POST /api/tracks/upload` endpoint — accepts audio file, saves to `/server/uploads/`
+- ✅ `GET /api/tracks/:filename/stream` endpoint — streams audio file by filename
+- ✅ Sample audio files added to `/server/samples/` (sample1.mp3, sample2.mp3, sample3.mp3)
+- ✅ Jest + Supertest installed and configured
+- ✅ Test: health check returns 200
+- ✅ Test: `/api/tracks` returns an array
+- ✅ Test: upload returns 201 with track metadata
+- ✅ Test: stream endpoint returns correct audio content-type
+- ✅ All tests pass: `npm run test:server`
+- ✅ **Checkpoint**: `curl localhost:3001/api/health` → `{ status: "ok" }`
 
 ---
 

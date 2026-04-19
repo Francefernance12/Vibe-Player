@@ -2,126 +2,241 @@
 
 ## Project Overview
 
-A lightweight, Vercel-optimized music player web app built with React/TypeScript, Tailwind CSS, Node.js/Express, and SQLite. Designed to be learned and built incrementally over multiple sessions.
+A lightweight, Vercel-optimized music player web app built with React/TypeScript,
+Tailwind CSS, Node.js/Express, and SQLite. Built incrementally across ~5-hour sessions.
 
-**Repo**: Connected via GitHub MCP Server  
-**Deployment**: Vercel (serverless-compatible)  
-**Session structure**: Each session chunk fits within a ~5-hour reset window
+**Deployment**: Vercel (serverless-compatible)
+
+---
+
+## Tools & Agents Reference
+
+| Type | Name | Purpose |
+|---|---|---|
+| Main agent | Claude Code (`claude`) | Primary development |
+| Sub-agent | OpenCode (`opencode/big-pickle`) | Commit review + PR creation |
+| Claude Code command | `/review` — `.claude/commands/review.md` | Manual end-of-session trigger |
+| MCP | Spotify MCP | Phase 2 — music search |
+| MCP | YouTube Music MCP | Phase 2 — audio streaming |
+| Plugin | `frontend-design@claude-plugins-official` | High-quality UI generation |
+| Skill | `vercel-react-best-practices` | Re-render and performance rules |
+| Playwright MCP | (optional) | Live browser testing of playback |
+
+> GitHub MCP is not used. Git and PR operations are handled by the opencode
+> sub-agent via the `/review` slash command. Run `/review` manually at the
+> end of each session — there is no auto-hook.
+
+---
+
+## Repository Structure
+
+```
+/
+├── .claude/
+│   ├── commands/
+│   │   └── review.md              ← /review slash command
+│   ├── skills/
+│   │   └── vercel-react-best-practices/
+│   │       ├── SKILL.md
+│   │       ├── AGENTS.md
+│   │       └── rules/             ← individual rule files
+│   └── settings.json              ← frontend-design plugin enabled
+│
+├── client/                        ← React/TS frontend (Vite)
+│   └── src/
+│       ├── components/            ← TrackList, PlayerControls, ProgressBar, etc.
+│       ├── contexts/              ← PlaylistContext, AuthContext (Phase 3)
+│       ├── pages/                 ← LoginPage, RegisterPage (Phase 3)
+│       └── hooks/                 ← usePlayer, usePlaylist, etc.
+│
+├── server/                        ← Node/Express backend
+│   ├── routes/                    ← tracks, upload, stream, auth, search
+│   ├── db/                        ← migrations + index.ts (Phase 3)
+│   ├── uploads/                   ← user-uploaded audio (gitignored)
+│   └── samples/                   ← bundled royalty-free tracks
+│
+├── shared/                        ← shared TypeScript types
+│
+├── docs/
+│   ├── DATABASE_SCHEMA.md         ← written + reviewed before any DB code
+│   ├── DECISIONS.md               ← log of library/architecture choices
+│   ├── PLAN.md                    ← this file
+│   ├── PLANCHECKLIST.md           ← updated every session
+│   ├── REVIEW.md                  ← opencode only, never written by Claude Code
+│   └── ARCHITECTURE.md            ← Phase 4
+│
+├── skills-lock.json
+├── CLAUDE.md                      ← Claude Code instructions
+├── .env                           ← gitignored
+├── .gitignore
+└── vercel.json
+```
 
 ---
 
 ## Tech Stack
 
+| Layer | Choice |
+|---|---|
+| Frontend | React + TypeScript (Vite) |
+| Styling | Tailwind CSS |
+| Audio | Howler.js |
+| Backend | Node.js + Express |
+| Database | SQLite via better-sqlite3 (Phase 3+) |
+| Testing (backend) | Jest + Supertest |
+| Testing (frontend) | Vitest + React Testing Library |
+| Deployment | Vercel |
 
-| Layer              | Choice                         | Reason                                |
-| ------------------ | ------------------------------ | ------------------------------------- |
-| Frontend           | React + TypeScript             | Strong tooling, Claude excels with it |
-| Styling            | Tailwind CSS                   | Utility-first, fast iteration         |
-| Audio              | Howler.js                      | Cross-browser audio, simple API       |
-| Backend            | Node.js + Express              | Lightweight, well-documented          |
-| Database           | SQLite (via better-sqlite3)    | Zero-config, easily swappable         |
-| Testing (backend)  | Jest + Supertest               | Standard Express testing stack        |
-| Testing (frontend) | Vitest + React Testing Library | Vite-native, fast                     |
-| Build/Dev          | Vite                           | Fast HMR for React/TS                 |
-| Deployment         | Vercel                         | Edge-optimized, free tier             |
+---
 
+## CLAUDE.md Rules (enforced every session)
+
+```
+## VERY IMPORTANT
+- Be simple. Work incrementally. Validate each step before moving on.
+- Use latest stable library APIs.
+
+## Documentation Rules
+- Add an entry to docs/DECISIONS.md whenever a library or architecture choice is made.
+- Update docs/PLANCHECKLIST.md at the end of every session.
+- Never write to docs/REVIEW.md — that belongs to the opencode sub-agent.
+- docs/DATABASE_SCHEMA.md must exist and be approved before any DB code (Phase 3).
+
+## Testing Rules
+- Every new Express endpoint gets a Supertest test.
+- Every new React component gets at least one Vitest test.
+- DB tests always use :memory: SQLite, never the real file.
+- Run all tests before every commit.
+
+## Code Style
+- Do not overengineer.
+- Identify root cause before fixing issues.
+- Short modules, short functions, clear names.
+- No emojis in code or logs.
+
+## End of Session
+1. Update docs/PLANCHECKLIST.md
+2. Run full test suite — fix any failures
+3. Commit
+4. Run /review
+```
 
 ---
 
 ## Phase 1 — Beta Playback (No Database)
 
-**Goal**: A working music player that can play uploaded audio files and bundled sample tracks. No login, no persistence.
+**Goal**: A working music player that plays uploaded audio files and bundled
+samples. No login, no persistence. All tests pass on a live Vercel URL.
+
+---
 
 ### Session 1A — Project Scaffold + Backend API
 
-**What you'll build**: The skeleton of the project with a working Express server that serves audio files.
+**Deliverable**: Working Express server with four endpoints and passing tests.
 
-Steps for Claude Code:
+Steps:
+1. Create monorepo structure: `/client`, `/server`, `/shared`, `/docs`
+2. Confirm `CLAUDE.md` exists in root with all rules above
+3. Confirm `docs/PLANCHECKLIST.md` exists with all phases listed, all unchecked
+4. Confirm `docs/DECISIONS.md` exists (even if empty)
+5. Scaffold Express server in `/server`
+6. Implement four endpoints:
+   - `GET /api/health` → `{ status: "ok" }`
+   - `GET /api/tracks` → array of track metadata from `/server/samples/` and `/server/uploads/`
+   - `POST /api/upload` → accepts `multipart/form-data`, saves to `/server/uploads/`, returns track metadata
+   - `GET /api/tracks/:id/stream` → streams audio file, sets correct `Content-Type`
+7. Add 2–3 royalty-free `.mp3` files to `/server/samples/`
+8. Install Jest + Supertest, write tests:
+   - `GET /api/health` returns 200 with `{ status: "ok" }`
+   - `GET /api/tracks` returns an array
+   - `POST /api/upload` with a test file returns 201 with track metadata
+   - `GET /api/tracks/:id/stream` returns a response with audio `Content-Type`
+9. Run `npm run test:server` — all must pass
+10. Add decision entry to `docs/DECISIONS.md` for any library choices made
+11. Update `docs/PLANCHECKLIST.md`
+12. Commit, run `/review`
 
-1. Initialize the monorepo structure
-  ```
-   /client   (React/TS/Vite frontend)
-   /server   (Node/Express backend)
-   /shared   (shared TypeScript types)
-  ```
-2. Set up `CLAUDE.md` in root with coding principles (see template below)
-3. Scaffold the Express server
-  - `GET /api/health` — health check endpoint
-  - `GET /api/tracks` — returns list of available sample tracks
-  - `POST /api/upload` — accepts audio file upload (multipart/form-data), stores in `/server/uploads/`
-  - `GET /api/tracks/:id/stream` — streams audio file by ID
-4. Add sample audio files (royalty-free, e.g. from pixabay) to `/server/samples/`
-5. Write Jest + Supertest unit tests for all endpoints
-  - Test: health check returns 200
-  - Test: `/api/tracks` returns an array
-  - Test: upload returns 201 with track metadata
-  - Test: stream endpoint returns audio content-type header
-6. Verify all tests pass: `npm test`
-
-**Checkpoint**: `curl http://localhost:3001/api/health` returns `{ status: "ok" }`
+**Checkpoint**: `curl http://localhost:3001/api/health` returns `{ "status": "ok" }`
 
 ---
 
 ### Session 1B — Frontend UI + Audio Engine
 
-**What you'll build**: A functional player UI wired to the backend.
+**Deliverable**: Full player UI wired to the backend, playable in browser.
 
-Steps for Claude Code:
-
-1. Scaffold the React/TS client with Vite
+Steps:
+1. Scaffold React + TypeScript + Vite in `/client`
 2. Install and configure Tailwind CSS
 3. Install Howler.js: `npm install howler @types/howler`
-4. Build components (in this order, validate each before next):
-  - `TrackList` — fetches and displays `/api/tracks`, renders a list
-  - `PlayerControls` — play/pause button, previous/next
-  - `ProgressBar` — displays current time / duration, seekable
-  - `VolumeControl` — slider for volume
-  - `FileUpload` — drag-and-drop or click to upload audio files
-5. Wire Howler.js to `PlayerControls` and `ProgressBar`
-6. Add Vitest tests:
-  - Test: `TrackList` renders a list when given mock track data
-  - Test: `PlayerControls` calls onPlay when play button clicked
-  - Test: `ProgressBar` renders correct time display
-7. Configure Vite proxy to forward `/api` to Express (`localhost:3001`)
-8. Verify end-to-end: upload a file, see it appear in list, press play
+4. Configure Vite proxy: `/api` → `http://localhost:3001`
+5. Build components in this order — validate each before moving to the next:
+   - `TrackList` — fetches `GET /api/tracks`, renders a clickable list
+   - `PlayerControls` — play/pause, previous/next; wired to Howler.js
+   - `ProgressBar` — current time / duration display, seekable via click/drag;
+     use a `ref` to update the bar on Howler ticks — do NOT use `setState`
+     on every tick, this causes unnecessary re-renders
+   - `VolumeControl` — volume slider wired to Howler
+   - `FileUpload` — drag-and-drop or click; calls `POST /api/upload`
+6. Consult `.claude/skills/vercel-react-best-practices/SKILL.md` before writing
+   any component — apply relevant rules (especially re-render section 5)
+7. Write Vitest + React Testing Library tests:
+   - `TrackList` renders the correct number of items from mock data
+   - `PlayerControls` calls `onPlay` when play button is clicked
+   - `ProgressBar` renders the correct time string format
+8. Run `npm run test:client` — all must pass
+9. Manual smoke test: upload an MP3 → appears in list → plays → seek works → pause works
+10. Update `docs/PLANCHECKLIST.md`
+11. Commit, run `/review`
 
-**Checkpoint**: Can upload an MP3, see it in the track list, and play it with working seek/pause.
-
----
-
-### Session 1C — Polish + Deployment
-
-**What you'll build**: Vercel deployment and quality pass.
-
-Steps for Claude Code:
-
-1. Add `vercel.json` to configure routing (client served at `/`, API at `/api`)
-2. Make Express compatible with Vercel serverless (wrap in `module.exports`)
-3. Add environment variable support via `.env` + `dotenv`
-4. Run full test suite, fix any failures
-5. Deploy to Vercel via CLI: `vercel --prod`
-6. Verify deployed URL: health check, upload, playback all work
-7. Push to GitHub repo via GitHub MCP
-
-**Checkpoint**: Live URL plays music. GitHub repo is up to date.
+**Checkpoint**: Upload a file, play it, seek to a specific point — all working locally.
 
 ---
 
-## Phase 2 — External APIs + MCP Integration
+### Session 1C — Polish + Vercel Deployment
 
-**Goal**: Connect to external music sources. Users can search and stream from YouTube Music or Spotify.
+**Deliverable**: Live Vercel URL with working upload and playback.
 
-> Note: Spotify and YouTube APIs have OAuth requirements. This phase will explore what's available via MCPs and may use yt-dlp or unofficial wrappers for YouTube audio. Document decisions as you go.
+Steps:
+1. Add `vercel.json`:
+   - Route `/api/*` to Express server function
+   - Route everything else to the Vite client build
+2. Wrap Express app for Vercel serverless: `module.exports = app`
+3. Add `.env` support via `dotenv`; confirm `.env` is in `.gitignore`
+4. Run full test suite (`npm run test:server` + `npm run test:client`) — fix any failures
+5. Run `vercel --prod`
+6. Verify live URL:
+   - Health check returns `{ "status": "ok" }`
+   - Upload an audio file
+   - Play it back
+7. Update `docs/PLANCHECKLIST.md`: mark Session 1C and Phase 1 complete
+8. Commit, run `/review` — opencode creates PR from `phase-1` branch into `main`
 
-### Session 2A — GitHub MCP + Spotify MCP Setup
+**Checkpoint**: Live Vercel URL plays uploaded audio. All tests pass.
 
-Steps for Claude Code:
+---
 
-1. Configure GitHub MCP server in Claude Code settings
-2. Research Spotify MCP capabilities — what endpoints are available?
-3. Add `GET /api/search?q=` endpoint that proxies Spotify search results
-4. Display search results in a new `SearchBar` component on the frontend
-5. Write tests for the search endpoint (mock the MCP response)
+## Phase 2 — External APIs
+
+**Goal**: Search and stream from Spotify and/or YouTube. Playlist management
+persisted to localStorage (no database yet).
+
+> Spotify requires OAuth app registration. YouTube has TOS restrictions on
+> audio extraction. Document every decision in `docs/DECISIONS.md`.
+
+---
+
+### Session 2A — Spotify MCP + Search Endpoint
+
+**Deliverable**: Working search bar returning real Spotify track metadata.
+
+Steps:
+1. Configure Spotify MCP — document the setup in `docs/DECISIONS.md`
+2. Add `GET /api/search?q=` endpoint proxying Spotify search results
+3. Build `SearchBar` component in the frontend
+4. Display search results alongside local tracks
+5. Write tests — mock the MCP response in Supertest tests
+6. Update `docs/PLANCHECKLIST.md`
+7. Commit, run `/review`
 
 **Checkpoint**: Typing in the search bar returns real Spotify track metadata.
 
@@ -129,99 +244,132 @@ Steps for Claude Code:
 
 ### Session 2B — YouTube Audio Streaming
 
-Steps for Claude Code:
+**Deliverable**: Pasting a YouTube URL plays audio in the player.
 
-1. Research YouTube Music MCP or yt-dlp integration
-2. Add `GET /api/youtube/stream?url=` endpoint
-3. Stream audio through Express (pipe response, set correct headers)
-4. Add a "YouTube URL" input field to the UI
-5. Wire Howler.js to play the streamed YouTube audio
-6. Test: stream endpoint returns audio stream with correct content-type
+Steps:
+1. Research YouTube MCP or yt-dlp; document the chosen approach in `docs/DECISIONS.md`
+2. Add `GET /api/youtube/stream?url=` endpoint — pipe audio through Express
+3. Set correct `Content-Type` and streaming headers
+4. Add a YouTube URL input field to the UI
+5. Wire Howler.js to accept the streamed URL
+6. Write tests for the stream endpoint
+7. Update `docs/PLANCHECKLIST.md`
+8. Commit, run `/review`
 
-**Checkpoint**: Paste a YouTube URL, app plays the audio.
+**Checkpoint**: Paste a YouTube URL → app plays audio.
 
 ---
 
 ### Session 2C — Playlist Management (Frontend Only)
 
-Steps for Claude Code:
+**Deliverable**: Reorderable playlist that persists across page refreshes.
 
-1. Add playlist state to a React context (`PlaylistContext`)
-2. "Add to playlist" button on each track (local + search results)
-3. `PlaylistPanel` component — reorderable list (drag-and-drop with `@dnd-kit/core`)
-4. Persist playlist to `localStorage` (no database yet)
-5. Write Vitest tests for playlist context operations (add, remove, reorder)
+Steps:
+1. Create `PlaylistContext` in `/client/src/contexts/`
+2. Add "Add to playlist" button on each track (local + search results)
+3. Build `PlaylistPanel` component with drag-and-drop (`@dnd-kit/core`)
+4. Persist playlist to `localStorage` — this is temporary, replaced in Phase 3
+5. Write Vitest tests for playlist context: add, remove, reorder
+6. Update `docs/PLANCHECKLIST.md`
+7. Commit, run `/review` — opencode creates PR from `phase-2` branch into `main`
 
-**Checkpoint**: Can build a playlist from local files + Spotify results, reorder it, and it persists on refresh.
+**Checkpoint**: Build a playlist, reorder it, refresh — it persists.
 
 ---
 
 ## Phase 3 — Authentication + Database
 
-**Goal**: Users can register, log in, and have their playlists saved server-side.
+**Goal**: Users can register, log in, and have playlists saved server-side.
+`docs/DATABASE_SCHEMA.md` already exists and is approved — use it as the
+source of truth. Do not deviate from it without updating the doc first.
 
-### Session 3A — SQLite Database Setup
+---
 
-Steps for Claude Code:
+### Session 3A — SQLite Setup + Migrations
 
-1. Install `better-sqlite3` and set up `/server/db/` directory
-2. Create database schema migrations:
-  ```sql
-   users (id, email, password_hash, created_at)
-   playlists (id, user_id, name, created_at)
-   playlist_tracks (id, playlist_id, track_data JSON, position)
-  ```
-3. Write a `db.ts` module with typed query helpers
-4. Write Jest tests for all database operations (use in-memory SQLite for tests)
+**Deliverable**: All database operations tested with in-memory SQLite.
 
-**Checkpoint**: `npm test` passes all DB tests with an in-memory database.
+Steps:
+1. Confirm `docs/DATABASE_SCHEMA.md` is the approved version before writing code
+2. Install `better-sqlite3`
+3. Create `/server/db/migrations/`:
+   - `001_create_users.sql`
+   - `002_create_playlists.sql`
+   - `003_create_playlist_tracks.sql`
+   - Write these exactly from `docs/DATABASE_SCHEMA.md` — no deviations
+4. Write `/server/db/migrate.ts` — simple runner that executes migrations in order
+5. Write `/server/db/index.ts` — typed query helpers for all tables
+6. Write Jest tests for all DB operations using `:memory:` database
+7. Run `npm run test:server` — all must pass
+8. Update `docs/PLANCHECKLIST.md`
+9. Commit, run `/review`
+
+**Checkpoint**: All DB tests pass with in-memory SQLite. No real `.db` file created.
 
 ---
 
 ### Session 3B — Auth Endpoints
 
-Steps for Claude Code:
+**Deliverable**: Register and login flow working via curl/Postman.
 
-1. Install `bcrypt` (password hashing) and `jsonwebtoken` (JWT sessions)
-2. Add endpoints:
-  - `POST /api/auth/register` — create user, return JWT
-  - `POST /api/auth/login` — verify credentials, return JWT
-  - `GET /api/auth/me` — return current user from JWT (auth middleware)
-3. Add `authMiddleware` to protect future user-specific routes
-4. Write Supertest tests for all auth flows (happy path + error cases)
+Steps:
+1. Install `bcrypt` and `jsonwebtoken`
+2. Implement endpoints:
+   - `POST /api/auth/register` — validate input, hash password (cost 12), insert user, return JWT
+   - `POST /api/auth/login` — verify credentials, return JWT
+   - `GET /api/auth/me` — decode JWT from `httpOnly` cookie, return user
+3. Write `authMiddleware` — attaches user to request or returns 401
+4. Apply `authMiddleware` to all playlist endpoints
+5. Write Supertest tests:
+   - Register creates user, returns JWT
+   - Login with wrong password returns 401
+   - `GET /api/auth/me` with valid JWT returns user
+   - `GET /api/auth/me` with no JWT returns 401
+6. Update `docs/PLANCHECKLIST.md`
+7. Commit, run `/review`
 
-**Checkpoint**: Register a user via curl/Postman, get a JWT back, use it on `/api/auth/me`.
+**Checkpoint**: `curl -X POST /api/auth/register` → get JWT → use on `/api/auth/me`.
 
 ---
 
 ### Session 3C — Auth UI + Playlist Persistence
 
-Steps for Claude Code:
+**Deliverable**: Full end-to-end auth flow with server-side playlist storage.
 
-1. Build `LoginPage` and `RegisterPage` components
-2. Store JWT in `httpOnly` cookie (more secure than localStorage)
-3. Add `AuthContext` to React — provides current user and login/logout
-4. Move playlist save/load from `localStorage` to `/api/playlists` endpoints
-5. Add `GET /api/playlists` and `POST /api/playlists` endpoints (auth-protected)
-6. Vitest tests for auth UI components (login form validation, error states)
+Steps:
+1. Build `LoginPage` and `RegisterPage` in `/client/src/pages/`
+2. Store JWT in `httpOnly` cookie (set by server response, not JS)
+3. Create `AuthContext` in `/client/src/contexts/` — current user, login, logout
+4. Add `GET /api/playlists` and `POST /api/playlists` endpoints (auth-protected)
+5. Add `PUT /api/playlists/:id/tracks` for reorder operations
+6. Migrate playlist save/load from `localStorage` to the API
+7. Write Vitest tests for auth UI:
+   - Login form shows error on bad credentials
+   - Register form validates email format
+8. Update `docs/PLANCHECKLIST.md`
+9. Commit, run `/review` — opencode creates PR from `phase-3` branch into `main`
 
-**Checkpoint**: Register, log in, build a playlist, refresh the page — playlist is still there.
+**Checkpoint**: Register → log in → build playlist → refresh → playlist persists.
 
 ---
 
-## Phase 4 — Polish, Performance, and Brainstorm
+## Phase 4 — Polish + Scale
 
-**Goal**: Production-readiness pass and exploration of next features.
+**Goal**: Production-ready performance, mobile support, and documented architecture.
+
+---
 
 ### Session 4A — Performance Audit
 
-Steps for Claude Code:
-
-1. Run Lighthouse audit on deployed Vercel URL
-2. Fix any critical performance issues (image optimization, lazy loading)
-3. Add React.memo / useMemo to prevent unnecessary re-renders during audio playback (high-frequency updates from Howler.js)
-4. Add loading skeletons for track list and search results
-5. Audit and reduce bundle size with Vite's `vite-plugin-visualizer`
+Steps:
+1. Run Lighthouse on the live Vercel URL
+2. Fix any score below 80 on mobile (lazy loading, bundle splitting)
+3. Run `vite-plugin-visualizer` to inspect bundle composition
+4. Audit `ProgressBar` — confirm Howler.js ticks do not cause re-renders
+   (ref-based approach from Session 1B should already handle this)
+5. Add loading skeletons to `TrackList` and search results
+6. Update `docs/PLANCHECKLIST.md`
+7. Commit, run `/review`
 
 **Checkpoint**: Lighthouse performance score > 80 on mobile.
 
@@ -229,108 +377,52 @@ Steps for Claude Code:
 
 ### Session 4B — Mobile Responsiveness
 
-Steps for Claude Code:
-
-1. Audit all components on mobile viewport (375px wide)
+Steps:
+1. Audit all components at 375px viewport width
 2. Fix Tailwind breakpoints for small screens
-3. Implement a bottom-sheet player for mobile (slides up when track is playing)
-4. Test gestures: swipe to skip track (use `react-swipeable`)
+3. Implement bottom-sheet player for mobile (slides up when a track is playing)
+4. Add swipe-to-skip gesture (`react-swipeable`)
+5. Update `docs/PLANCHECKLIST.md`
+6. Commit, run `/review`
 
 **Checkpoint**: App is fully usable on a phone screen.
 
 ---
 
-### Session 4C — Brainstorm & Backlog
+### Session 4C — Backlog + Architecture Docs
 
-Ideas to evaluate and prioritize:
+Steps:
+1. Write `docs/ARCHITECTURE.md` documenting current system design
+2. Create `BACKLOG.md` in root with effort vs. impact scoring for each idea
+3. Pick one item from the backlog and implement it
+4. Commit, run `/review` — opencode creates final PR into `main`
 
-- **Offline mode** — service worker + cache API for recently played tracks
-- **Waveform visualizer** — using Web Audio API's `AnalyserNode`
-- **Collaborative playlists** — shared playlist URLs (no login required for viewer)
-- **Discord Rich Presence** — show what you're listening to
-- **Smart shuffle** — ML-style audio fingerprinting to group similar songs
-- **Last.fm scrobbling** — track listening history
-- **PostgreSQL migration** — swap SQLite for Postgres for multi-user scale
-- **PWA** — installable on phone as a native-like app
-
-Steps for Claude Code:
-
-1. Create `BACKLOG.md` with scored feature ideas (effort vs. impact matrix)
-2. Pick one small feature from the list and implement it
-3. Write a `ARCHITECTURE.md` documenting current system design
+**Backlog ideas to score**:
+- Offline mode (service worker + Cache API)
+- Waveform visualizer (Web Audio API `AnalyserNode`)
+- Collaborative playlist URLs (read-only, no login required)
+- Last.fm scrobbling
+- PWA — installable on phone
+- PostgreSQL migration for multi-user scale
+- Discord Rich Presence
 
 ---
 
-## CLAUDE.md Template (put this in your project root)
-
-```markdown
-# Music Player — Claude Guidelines
-
-## VERY IMPORTANT
-
-- Be simple. Approach tasks in a simple, incremental way.
-- Work incrementally ALWAYS. Small, simple steps. Validate each increment before moving on.
-- Use latest stable library APIs as of now.
-
-## Project Context
-
-This is a lightweight music player web app.
-- Frontend: React + TypeScript, Tailwind CSS, Howler.js
-- Backend: Node.js + Express
-- Database: SQLite via better-sqlite3 (Phase 3+)
-- Testing: Jest + Supertest (backend), Vitest + React Testing Library (frontend)
-- Deployed on Vercel
-
-## Mandatory Code Style
-
-- Do not overengineer. Keep it simple.
-- Identify root cause before fixing issues. Prove with evidence, then fix.
-- Favor clear, concise docstring comments.
-- Favor short modules, short functions. Name things clearly.
-- Never use emojis in code, print statements, or logging.
-- Keep README.md concise.
-
-## Testing Rules
-
-- Every new Express endpoint gets a Supertest test.
-- Every new React component gets at least one Vitest test.
-- Run tests after every session before committing.
-- Use in-memory SQLite for all database tests (never the real file).
-
-## Debugging Rules
-
-- Always identify root cause BEFORE fixing.
-- Reproduce the bug consistently first.
-- Try one fix at a time. Be methodical.
-- Do not apply workarounds. Fix the real problem.
-
-## File Structure
-
-/client        React/TS frontend (Vite)
-/server        Express backend
-/shared        Shared TypeScript types
-/server/db     SQLite database + migrations
-/server/uploads  Uploaded audio files (gitignored)
-/server/samples  Bundled sample tracks
-```
-
----
-
-## Quick Reference: Commands
+## Quick Reference
 
 ```bash
 # Development
-npm run dev          # Start both client and server (use concurrently)
-npm run dev:client   # Frontend only (port 5173)
-npm run dev:server   # Backend only (port 3001)
+npm run dev           # client + server together
+npm run dev:client    # frontend only (port 5173)
+npm run dev:server    # backend only (port 3001)
 
 # Testing
-npm test             # Run all tests
-npm run test:client  # Vitest (frontend)
-npm run test:server  # Jest (backend)
+npm run test:server   # Jest + Supertest
+npm run test:client   # Vitest + React Testing Library
 
-# Deployment
-vercel               # Preview deploy
-vercel --prod        # Production deploy
+# Review + PR (manual, end of session)
+/review
+
+# Deploy
+vercel --prod
 ```
-

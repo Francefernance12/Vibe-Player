@@ -9,6 +9,7 @@
 ## Project Context
 
 This is a lightweight music player web app.
+
 - Frontend: React + TypeScript, Tailwind CSS, Howler.js
 - Backend: Node.js + Express
 - Database: SQLite via better-sqlite3 (Phase 3+)
@@ -48,7 +49,17 @@ This is a lightweight music player web app.
 `/server/samples`  Bundled sample tracks
 
 
-Quick Reference: Commands:
+
+## Documentation Rules
+
+- Add an entry to docs/[DECISIONS.md](http://DECISIONS.md) whenever a library or architecture choice is made.
+
+- PLAN_[CHECKLIST.md](http://CHECKLIST.md) is updated at the end of every session.
+
+- Never write to docs/[REVIEW.md](http://REVIEW.md) — that belongs to the opencode sub-agent.
+
+## Quick Reference: Commands:
+
 ```
 # Development
 npm run dev          # Start both client and server (use concurrently)
@@ -64,3 +75,4 @@ npm run test:server  # Jest (backend)
 vercel               # Preview deploy
 vercel --prod        # Production deploy
 ```
+
