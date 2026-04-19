@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node *)",
+      "Bash(npm install *)",
+      "Bash(npm test *)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(git add *)",
+      "Bash(opencode --model opencode/big-pickle --prompt 'You are a code reviewer. Do the following in order: *)"
+    ]
+  }
+}
