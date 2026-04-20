@@ -9,10 +9,10 @@ export interface Track {
 
 export interface SearchTrack {
   id: string
-  name: string
+  title: string
   artist: string
-  album: string
-  durationMs: number
+  albumArt: string | null
   previewUrl: string | null
-  source: 'spotify'
+  durationMs: number
+  source: 'deezer'
 }

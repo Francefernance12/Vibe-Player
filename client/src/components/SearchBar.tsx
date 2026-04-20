@@ -20,7 +20,6 @@ export function SearchBar({ onResults }: Props) {
       setError(null)
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
-        if (res.status === 503) { setError('Spotify not configured'); onResults([]); return }
         if (!res.ok) throw new Error(`Search failed: ${res.statusText}`)
         onResults(await res.json())
       } catch (err) {
@@ -40,8 +39,8 @@ export function SearchBar({ onResults }: Props) {
         type="search"
         value={query}
         onChange={e => setQuery(e.target.value)}
-        placeholder="Search Spotify…"
-        aria-label="Search Spotify"
+        placeholder="Search Deezer…"
+        aria-label="Search Deezer"
         className="w-full bg-zinc-800 text-zinc-100 placeholder-zinc-500 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
       />
       {loading && (

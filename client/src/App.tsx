@@ -32,13 +32,12 @@ export default function App() {
     player.play(track)
   }, [player])
 
-  // Spotify preview playback: treat preview URL as a streamable track
   const handleSearchSelect = useCallback((result: SearchTrack) => {
     if (!result.previewUrl) return
     const synthetic: Track = {
       id: result.id,
       filename: result.previewUrl,
-      originalName: `${result.name} — ${result.artist}`,
+      originalName: `${result.title} — ${result.artist}`,
       mimeType: 'audio/mpeg',
       size: 0,
       source: 'upload',

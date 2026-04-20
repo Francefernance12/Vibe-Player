@@ -1,42 +1,28 @@
 import request from 'supertest';
 import app from '../app';
 
-const MOCK_TOKEN_RESPONSE = { access_token: 'test-token', expires_in: 3600 };
-const MOCK_SEARCH_RESPONSE = {
-  tracks: {
-    items: [
-      {
-        id: 'abc123',
-        name: 'Test Song',
-        artists: [{ name: 'Test Artist' }],
-        album: { name: 'Test Album' },
-        duration_ms: 200000,
-        preview_url: 'https://example.com/preview.mp3',
-      },
-    ],
-  },
+const MOCK_DEEZER_RESPONSE = {
+  data: [
+    {
+      id: 3135556,
+      title: 'Creep',
+      artist: { name: 'Radiohead' },
+      album: { cover_medium: 'https://example.com/cover.jpg' },
+      preview: 'https://example.com/preview.mp3',
+      duration: 239,
+    },
+  ],
 };
 
-function mockFetch(tokenRes: object, searchRes: object) {
-  let calls = 0;
-  global.fetch = jest.fn().mockImplementation(() => {
-    calls++;
-    const body = calls === 1 ? tokenRes : searchRes;
-    return Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
-  }) as jest.Mock;
-}
-
 beforeEach(() => {
-  process.env['SPOTIFY_CLIENT_ID'] = 'test-id';
-  process.env['SPOTIFY_CLIENT_SECRET'] = 'test-secret';
-  // Reset token cache between tests by forcing expiry
-  jest.resetModules();
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve(MOCK_DEEZER_RESPONSE),
+  }) as jest.Mock;
 });
 
 afterEach(() => {
   jest.restoreAllMocks();
-  delete process.env['SPOTIFY_CLIENT_ID'];
-  delete process.env['SPOTIFY_CLIENT_SECRET'];
 });
 
 describe('GET /api/search', () => {
@@ -46,25 +32,25 @@ describe('GET /api/search', () => {
     expect(res.body.error).toMatch(/q is required/);
   });
 
-  it('returns 503 when Spotify credentials are not set', async () => {
-    delete process.env['SPOTIFY_CLIENT_ID'];
-    delete process.env['SPOTIFY_CLIENT_SECRET'];
-    const res = await request(app).get('/api/search?q=test');
-    expect(res.status).toBe(503);
-  });
-
-  it('returns an array of SearchTrack objects with the correct shape', async () => {
-    mockFetch(MOCK_TOKEN_RESPONSE, MOCK_SEARCH_RESPONSE);
-    const res = await request(app).get('/api/search?q=test');
+  it('returns an array of SearchTrack objects with correct shape', async () => {
+    const res = await request(app).get('/api/search?q=radiohead');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body[0]).toMatchObject({
-      id: 'abc123',
-      name: 'Test Song',
-      artist: 'Test Artist',
-      album: 'Test Album',
-      durationMs: 200000,
-      source: 'spotify',
+      id: '3135556',
+      title: 'Creep',
+      artist: 'Radiohead',
+      albumArt: 'https://example.com/cover.jpg',
+      previewUrl: 'https://example.com/preview.mp3',
+      durationMs: 239000,
+      source: 'deezer',
     });
+  });
+
+  it('returns 500 when Deezer request fails', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 503 });
+    const res = await request(app).get('/api/search?q=test');
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/Deezer search error/);
   });
 });

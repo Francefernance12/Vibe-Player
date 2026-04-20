@@ -22,7 +22,7 @@ test('calls onResults with empty array when query is cleared', async () => {
 })
 
 test('calls fetch and onResults when query is typed', async () => {
-  const mockResults = [{ id: '1', name: 'Song', artist: 'Artist', album: 'Album', durationMs: 1000, previewUrl: null, source: 'spotify' }]
+  const mockResults = [{ id: '1', title: 'Creep', artist: 'Radiohead', albumArt: null, previewUrl: null, durationMs: 239000, source: 'deezer' }]
   ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, json: () => Promise.resolve(mockResults) })
   const onResults = vi.fn()
   render(<SearchBar onResults={onResults} />)

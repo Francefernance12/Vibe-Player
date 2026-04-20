@@ -15,7 +15,7 @@ export const SearchResults = memo(function SearchResults({ results, onSelect }: 
   if (results.length === 0) return null
   return (
     <div className="bg-zinc-900 rounded-2xl overflow-hidden">
-      <p className="text-xs text-zinc-500 px-4 pt-3 pb-1">Spotify results</p>
+      <p className="text-xs text-zinc-500 px-4 pt-3 pb-1">Deezer results</p>
       <ul className="divide-y divide-zinc-800">
         {results.map(t => (
           <li
@@ -23,10 +23,14 @@ export const SearchResults = memo(function SearchResults({ results, onSelect }: 
             onClick={() => onSelect(t)}
             className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-zinc-800 transition-colors"
           >
-            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+            {t.albumArt ? (
+              <img src={t.albumArt} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded bg-zinc-700 flex-shrink-0" />
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-zinc-100 truncate">{t.name}</p>
-              <p className="text-xs text-zinc-500 truncate">{t.artist} · {t.album}</p>
+              <p className="text-sm font-medium text-zinc-100 truncate">{t.title}</p>
+              <p className="text-xs text-zinc-500 truncate">{t.artist}</p>
             </div>
             <span className="text-xs text-zinc-600 tabular-nums">{fmt(t.durationMs)}</span>
           </li>

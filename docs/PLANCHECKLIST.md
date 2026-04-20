@@ -3,11 +3,11 @@
 Track progress session by session. Check off items as they are completed and verified.
 This file is the first thing any agent or collaborator should read to understand current state.
 
-**Legend**: ✅ Done · 🔄 In progress · ⬜ Not started · ❌ Blocked
+**Legend**: ✅ Done · 🔄 In progress · ⬜ Not started · ❌ Blocked · ~~strikethrough~~ Superseded
 
 ---
 
-## Phase 1 — Beta Playback
+## Phase 1 — Beta Playback ✅ COMPLETE
 
 ### Session 1A — Project Scaffold + Backend API
 
@@ -46,7 +46,7 @@ This file is the first thing any agent or collaborator should read to understand
 - ✅ Test: `PlayerControls` calls `onPlay` when play button clicked
 - ✅ Test: `ProgressBar` renders correct time string
 - ✅ All tests pass: `npm run test:client` (10 tests, 3 files)
-- ⬜ **Checkpoint**: Upload MP3 → appears in list → plays with working seek/pause
+- ✅ **Checkpoint**: Upload MP3 → appears in list → plays with working seek/pause
 
 ---
 
@@ -54,71 +54,98 @@ This file is the first thing any agent or collaborator should read to understand
 
 - ✅ `vercel.json` configured (client at `/`, API routed via rewrites to `/api/index.ts`)
 - ✅ Express wrapped for Vercel serverless compatibility (`api/index.ts` exports app)
-- ✅ `/tmp` used for uploads on Vercel (filesystem read-only except /tmp); samples bundled via includeFiles
+- ✅ `/tmp` used for uploads on Vercel; samples bundled via `includeFiles`
 - ✅ `.env` (PORT=3001) set up, `.env` confirmed in `.gitignore`
 - ✅ Full test suite passes: 5 server + 10 client = 15 tests
 - ✅ Deployed to Vercel: `vercel --prod` — https://vibe-player.vercel.app
-- ✅ Live URL verified: health check returns `{"status":"ok"}`, tracks returns sample array
+- ✅ Live URL verified: health check + tracks working
 - ✅ Code pushed to GitHub
 - ✅ **Checkpoint**: Live Vercel URL serves the app end-to-end
 
 ---
 
-## Phase 2 — External APIs + MCP Integration
+## Phase 2 — External APIs
 
-### Session 2A — GitHub MCP + Spotify Search
+### ~~Session 2A (Spotify attempt) — SUPERSEDED~~
 
-- ✅ GitHub MCP configured in Claude Code settings
-- ✅ Spotify Web API (Client Credentials) used directly — no separate MCP needed; documented in DECISIONS.md
-- ✅ `GET /api/search?q=` endpoint — calls Spotify search, returns normalized array
-- ✅ `SearchBar` component — debounced input, calls `/api/search`
-- ✅ `SearchResults` component — displays results alongside local tracks
-- ✅ Spotify preview URLs playable via Howler (synthetic Track object)
-- ✅ Test: search returns 400 with no query, 503 with no credentials, correct shape with mock
+> Spotify Web API requires the app owner to have an active Premium subscription
+> to use the search endpoint. The implementation was correct but the API returns
+> 403 regardless of credentials without Premium. All Spotify code will be
+> removed and replaced with Deezer in the new Session 2A below.
+
+- ~~✅ GitHub MCP configured~~
+- ~~✅ Spotify Web API (Client Credentials) endpoint built~~
+- ~~✅ `GET /api/search?q=` endpoint — calls Spotify search~~
+- ~~✅ `SearchBar` component — debounced input~~
+- ~~✅ `SearchResults` component~~
+- ~~✅ Spotify preview URLs wired to Howler~~
+- ~~✅ Tests written (8 server, 13 client)~~
+- ~~❌ **Checkpoint blocked**: Spotify returns 403 — Premium required~~
+
+---
+
+### Session 2A — Deezer Search (replaces Spotify) ✅
+
+> Deezer public API requires no API key, no OAuth, no `.env` variables.
+> Search returns track metadata + direct 30-second preview MP3 URLs.
+> All Spotify-specific code removed and replaced.
+
+- ✅ Decision entry added to `docs/DECISIONS.md` — Deezer chosen, Spotify blocked reason documented
+- ✅ All Spotify-specific server code removed (`routes/search.ts` rewritten)
+- ✅ Token-caching / credential logic removed from server
+- ✅ `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` removed from `.env`
+- ✅ `GET /api/search?q=` rewritten to proxy `https://api.deezer.com/search?q=`
+- ✅ Response normalized to `{ id, title, artist, albumArt, previewUrl, durationMs, source: 'deezer' }`
+- ✅ `client/src/types.ts` updated — `SearchTrack.source` changed to `'deezer'`
+- ✅ `SearchBar` component rewired — no API key needed, "Spotify" references removed
+- ✅ `SearchResults` component updated — shows album art, "Deezer results" label
+- ✅ Tests rewritten:
+  - ✅ `GET /api/search` returns 400 with no query
+  - ✅ `GET /api/search?q=test` returns correct Deezer shape (mock fetch)
+  - ✅ `SearchBar` renders results from mock data
 - ✅ All tests pass: 8 server (2 files) + 13 client (4 files)
-- ⬜ **Checkpoint**: Typing in search bar returns real Spotify track metadata (needs SPOTIFY_CLIENT_ID/SECRET in Vercel env)
+- ⬜ Manual smoke test: search "radiohead" → results appear → preview plays
+- ⬜ **Checkpoint**: Search returns Deezer results, preview audio plays
 
 ---
 
-### Session 2B — YouTube Audio Streaming
-
-- ⬜ YouTube MCP or yt-dlp integration researched and decision documented in `DECISIONS.md`
-- ⬜ `GET /api/youtube/stream?url=` endpoint added
-- ⬜ Audio piped correctly through Express with proper headers
-- ⬜ YouTube URL input added to UI
-- ⬜ Howler.js wired to YouTube stream
-- ⬜ Test: stream endpoint returns audio content-type
-- ⬜ **Checkpoint**: Paste YouTube URL → app plays audio
-
----
-
-### Session 2C — Playlist Management (Frontend)
+### Session 2B — Playlist Management (Frontend Only)
 
 - ⬜ `PlaylistContext` created with React context
-- ⬜ "Add to playlist" button on each track
+- ⬜ "Add to playlist" button on each track (local + Deezer results)
 - ⬜ `PlaylistPanel` component with reorderable list
 - ⬜ `@dnd-kit/core` installed for drag-and-drop
-- ⬜ Playlist persisted to `localStorage` (temporary, replaced in Phase 3)
+- ⬜ Playlist persisted to `localStorage` with versioned key (`playlist:v1`)
+- ⬜ `localStorage` access wrapped in try/catch
 - ⬜ Test: add track to playlist
 - ⬜ Test: remove track from playlist
 - ⬜ Test: reorder tracks in playlist
+- ⬜ All tests pass
 - ⬜ **Checkpoint**: Playlist persists on page refresh
+
+> Note: YouTube streaming was the original Session 2B. Moved to Phase 4 backlog
+> due to TOS complexity. Playlist management is higher value for Phase 3 prep.
 
 ---
 
 ## Phase 3 — Authentication + Database
 
-### Session 3A — SQLite Setup
+### Session 3A — Schema Update + SQLite Setup
 
-- ⬜ `DATABASE_SCHEMA.md` reviewed before writing any code
+> Before writing any code, update `docs/DATABASE_SCHEMA.md` to replace
+> `'spotify'` with `'deezer'` in the source enum and track JSON shapes.
+
+- ⬜ `docs/DATABASE_SCHEMA.md` updated: source enum changed to `'local' | 'deezer'`
+- ⬜ Deezer track JSON shape documented in schema
 - ⬜ `better-sqlite3` installed
 - ⬜ `/server/db/migrations/` directory created
-- ⬜ `001_create_users.sql` migration written
-- ⬜ `002_create_playlists.sql` migration written
-- ⬜ `003_create_playlist_tracks.sql` migration written
+- ⬜ `001_create_users.sql` written from schema
+- ⬜ `002_create_playlists.sql` written from schema
+- ⬜ `003_create_playlist_tracks.sql` written from schema
 - ⬜ Migration runner (`migrate.ts`) implemented
-- ⬜ `db.ts` query helper module written with full TypeScript types
+- ⬜ `db/index.ts` query helper module written with full TypeScript types
 - ⬜ All DB operations tested with in-memory SQLite
+- ⬜ All tests pass
 - ⬜ **Checkpoint**: All DB tests pass with `:memory:` database
 
 ---
@@ -135,6 +162,7 @@ This file is the first thing any agent or collaborator should read to understand
 - ⬜ Test: login with wrong password returns 401
 - ⬜ Test: `/api/auth/me` with valid JWT returns user
 - ⬜ Test: `/api/auth/me` with no JWT returns 401
+- ⬜ All tests pass
 - ⬜ **Checkpoint**: Register → get JWT → use on `/api/auth/me` via curl
 
 ---
@@ -147,9 +175,11 @@ This file is the first thing any agent or collaborator should read to understand
 - ⬜ `AuthContext` created (current user, login, logout)
 - ⬜ `GET /api/playlists` endpoint (auth-protected)
 - ⬜ `POST /api/playlists` endpoint (auth-protected)
+- ⬜ `PUT /api/playlists/:id/tracks` endpoint (reorder)
 - ⬜ Playlist save/load migrated from `localStorage` to API
 - ⬜ Test: login form shows error on bad credentials
 - ⬜ Test: register form validates email format
+- ⬜ All tests pass
 - ⬜ **Checkpoint**: Register → build playlist → refresh → playlist still there
 
 ---
@@ -158,6 +188,7 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 4A — Performance
 
+- ⬜ Root `tsconfig.json` / `server/tsconfig.json` conflict resolved
 - ⬜ Lighthouse audit run on live Vercel URL
 - ⬜ Performance issues identified and fixed
 - ⬜ Loading skeletons added to `TrackList` and search results
@@ -187,8 +218,7 @@ This file is the first thing any agent or collaborator should read to understand
 
 ## Agent Review Log
 
-Use this section to record findings from the OpenCode commit reviewer.
-
-| Session | Commit | Findings | Resolved |
+| Session | Date | Findings | Resolved |
 |---|---|---|---|
-| — | — | — | — |
+| 1A–1C | 2026-04-19 | `.env` in diff; tsconfig conflict; missing error boundary on SearchBar | ⬜ Pending |
+| 2A (Spotify) | 2026-04-20 | Spotify 403 — Premium required; code complete but blocked | ✅ Superseded by Deezer |

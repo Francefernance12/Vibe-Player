@@ -24,17 +24,14 @@ Will be added in Session 3A. Not needed for Phase 1.
 
 ## Session 2A
 
-### Spotify Web API (Client Credentials) over a Spotify MCP server
-No production-ready Spotify MCP server exists for Claude Code. The Spotify Web API's Client Credentials flow achieves the same result with less infrastructure: the server exchanges `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` for a bearer token (cached in-memory, refreshed on expiry) and calls `GET /v1/search`. The endpoint returns 503 if credentials are absent, so the app degrades gracefully in development without `.env` values.
+### Deezer public API over Spotify
+Spotify was attempted first but requires the developer app owner to hold an active Premium subscription (403 returned from `GET /v1/search` with valid Client Credentials token). Deezer's public search API (`https://api.deezer.com/search?q=`) requires no API key, no OAuth, and no account. It returns 30-second preview MP3 URLs for free, which are playable directly via Howler.js. The backend route is a thin proxy with no token logic or `.env` variables needed.
 
 ### .env removed from git tracking
-`.env` was accidentally committed in early sessions. Removed with `git rm --cached .env`. The file is gitignored. Credentials (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`) must be set as environment variables in the Vercel dashboard for production and in local `.env` for development.
+`.env` was accidentally committed in early sessions. Removed with `git rm --cached .env`. The file is gitignored. No credentials are required for Deezer — `.env` now contains only `PORT=3001` for local development.
 
-### Spotify preview URLs played via Howler
-Spotify's 30-second preview URLs are direct MP3 links. Rather than building a separate audio path, a synthetic `Track` object is created from the preview URL and passed to the existing `usePlayer` hook. This reuses all existing playback infrastructure at zero cost.
-
-### Spotify search deferred — Premium subscription required
-As of 2024, Spotify requires the developer app owner to have an active Premium subscription to use the Web API search endpoint. The Client Credentials flow obtains a token successfully, but `GET /v1/search` returns 403 with "Active premium subscription required for the owner of the app." The backend code is correct and complete; the feature is blocked on account status, not implementation. Session 2A checkpoint remains open until a Premium-owning account is used to create the app credentials.
+### Deezer preview URLs played via Howler
+Deezer's 30-second preview URLs are direct MP3 links. A synthetic `Track` object is constructed from the preview URL and passed to the existing `usePlayer` hook — the same pattern used for local tracks. No new playback infrastructure needed.
 
 ---
 
