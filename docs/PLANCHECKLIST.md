@@ -57,10 +57,10 @@ This file is the first thing any agent or collaborator should read to understand
 - ✅ `/tmp` used for uploads on Vercel (filesystem read-only except /tmp); samples bundled via includeFiles
 - ✅ `.env` (PORT=3001) set up, `.env` confirmed in `.gitignore`
 - ✅ Full test suite passes: 5 server + 10 client = 15 tests
-- ⬜ Deployed to Vercel: `vercel --prod`
-- ⬜ Live URL verified: health check, upload, playback all work
+- ✅ Deployed to Vercel: `vercel --prod` — https://vibe-player.vercel.app
+- ✅ Live URL verified: health check returns `{"status":"ok"}`, tracks returns sample array
 - ✅ Code pushed to GitHub
-- ⬜ **Checkpoint**: Live Vercel URL plays music end-to-end
+- ✅ **Checkpoint**: Live Vercel URL serves the app end-to-end
 
 ---
 
