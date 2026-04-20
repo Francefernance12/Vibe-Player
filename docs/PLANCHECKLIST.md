@@ -52,13 +52,14 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 1C — Polish + Vercel Deployment
 
-- ⬜ `vercel.json` configured (client at `/`, API at `/api`)
-- ⬜ Express wrapped for Vercel serverless compatibility
-- ⬜ `.env` + `dotenv` set up, `.env` added to `.gitignore`
-- ⬜ Full test suite passes before deploy
+- ✅ `vercel.json` configured (client at `/`, API routed via rewrites to `/api/index.ts`)
+- ✅ Express wrapped for Vercel serverless compatibility (`api/index.ts` exports app)
+- ✅ `/tmp` used for uploads on Vercel (filesystem read-only except /tmp); samples bundled via includeFiles
+- ✅ `.env` (PORT=3001) set up, `.env` confirmed in `.gitignore`
+- ✅ Full test suite passes: 5 server + 10 client = 15 tests
 - ⬜ Deployed to Vercel: `vercel --prod`
 - ⬜ Live URL verified: health check, upload, playback all work
-- ⬜ Code pushed to GitHub via GitHub MCP
+- ✅ Code pushed to GitHub
 - ⬜ **Checkpoint**: Live Vercel URL plays music end-to-end
 
 ---

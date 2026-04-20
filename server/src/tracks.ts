@@ -3,8 +3,17 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Track } from '../../shared/types';
 
-const SAMPLES_DIR = path.join(__dirname, '..', 'samples');
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+// On Vercel, the filesystem is read-only except for /tmp.
+// Files included via vercel.json includeFiles land under process.cwd().
+const IS_VERCEL = !!process.env.VERCEL;
+
+const SAMPLES_DIR = IS_VERCEL
+  ? path.join(process.cwd(), 'server', 'samples')
+  : path.join(__dirname, '..', 'samples');
+
+const UPLOADS_DIR = IS_VERCEL
+  ? '/tmp'
+  : path.join(__dirname, '..', 'uploads');
 
 const AUDIO_MIME: Record<string, string> = {
   '.mp3': 'audio/mpeg',
