@@ -33,6 +33,9 @@ No production-ready Spotify MCP server exists for Claude Code. The Spotify Web A
 ### Spotify preview URLs played via Howler
 Spotify's 30-second preview URLs are direct MP3 links. Rather than building a separate audio path, a synthetic `Track` object is created from the preview URL and passed to the existing `usePlayer` hook. This reuses all existing playback infrastructure at zero cost.
 
+### Spotify search deferred — Premium subscription required
+As of 2024, Spotify requires the developer app owner to have an active Premium subscription to use the Web API search endpoint. The Client Credentials flow obtains a token successfully, but `GET /v1/search` returns 403 with "Active premium subscription required for the owner of the app." The backend code is correct and complete; the feature is blocked on account status, not implementation. Session 2A checkpoint remains open until a Premium-owning account is used to create the app credentials.
+
 ---
 
 ## Session 1B

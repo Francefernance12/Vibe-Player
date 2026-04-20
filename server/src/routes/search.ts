@@ -44,10 +44,7 @@ router.get('/', async (req: Request, res: Response) => {
     const token = await getToken();
     const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=20`;
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) {
-      const body = await r.text().catch(() => '');
-      throw new Error(`Spotify search error: ${r.status} ${body}`);
-    }
+    if (!r.ok) throw new Error(`Spotify search error: ${r.status}`);
     const data = await r.json() as { tracks: { items: SpotifyTrackItem[] } };
 
     const tracks: SearchTrack[] = data.tracks.items.map(t => ({
