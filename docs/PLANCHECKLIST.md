@@ -31,21 +31,21 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 1B — Frontend UI + Audio Engine
 
-- ⬜ React + TypeScript + Vite scaffolded in `/client`
-- ⬜ Tailwind CSS installed and configured
-- ⬜ Howler.js installed (`howler` + `@types/howler`)
-- ⬜ `TrackList` component — fetches `/api/tracks`, renders list
-- ⬜ `PlayerControls` component — play/pause, previous/next buttons
-- ⬜ `ProgressBar` component — current time / duration display, seekable
-- ⬜ `VolumeControl` component — volume slider
-- ⬜ `FileUpload` component — drag-and-drop + click to upload
-- ⬜ Howler.js wired to `PlayerControls` and `ProgressBar`
-- ⬜ Vite proxy configured (`/api` → `localhost:3001`)
-- ⬜ Vitest + React Testing Library installed
-- ⬜ Test: `TrackList` renders correct number of items from mock data
-- ⬜ Test: `PlayerControls` calls `onPlay` when play button clicked
-- ⬜ Test: `ProgressBar` renders correct time string
-- ⬜ All tests pass: `npm run test:client`
+- ✅ React + TypeScript + Vite scaffolded in `/client`
+- ✅ Tailwind CSS installed and configured
+- ✅ Howler.js installed (`howler` + `@types/howler`)
+- ✅ `TrackList` component — fetches `/api/tracks`, renders list
+- ✅ `PlayerControls` component — play/pause, previous/next buttons
+- ✅ `ProgressBar` component — current time / duration display, seekable (ref-based, no setState on tick)
+- ✅ `VolumeControl` component — volume slider
+- ✅ `FileUpload` component — drag-and-drop + click to upload
+- ✅ Howler.js wired via `usePlayer` hook to all controls
+- ✅ Vite proxy configured (`/api` → `localhost:3001`)
+- ✅ Vitest + React Testing Library installed
+- ✅ Test: `TrackList` renders correct number of items from mock data
+- ✅ Test: `PlayerControls` calls `onPlay` when play button clicked
+- ✅ Test: `ProgressBar` renders correct time string
+- ✅ All tests pass: `npm run test:client` (10 tests, 3 files)
 - ⬜ **Checkpoint**: Upload MP3 → appears in list → plays with working seek/pause
 
 ---
