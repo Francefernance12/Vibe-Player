@@ -1,6 +1,3 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
-// Re-export the Express app as a Vercel serverless function.
-// Vercel's @vercel/node runtime adapts the request/response cycle.
+// Vercel serverless entry point. Re-exports the Express app.
+// Environment variables are configured in the Vercel dashboard (not .env).
 export { default } from '../server/src/app';
