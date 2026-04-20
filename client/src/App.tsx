@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Track } from './types'
+import { Track, SearchTrack } from './types'
 import { usePlayer } from './hooks/usePlayer'
 import { TrackList } from './components/TrackList'
 import { PlayerControls } from './components/PlayerControls'
 import { ProgressBar } from './components/ProgressBar'
 import { VolumeControl } from './components/VolumeControl'
 import { FileUpload } from './components/FileUpload'
+import { SearchBar } from './components/SearchBar'
+import { SearchResults } from './components/SearchResults'
 
 export default function App() {
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchResults, setSearchResults] = useState<SearchTrack[]>([])
 
   const player = usePlayer(tracks)
 
@@ -29,10 +32,31 @@ export default function App() {
     player.play(track)
   }, [player])
 
+  // Spotify preview playback: treat preview URL as a streamable track
+  const handleSearchSelect = useCallback((result: SearchTrack) => {
+    if (!result.previewUrl) return
+    const synthetic: Track = {
+      id: result.id,
+      filename: result.previewUrl,
+      originalName: `${result.name} — ${result.artist}`,
+      mimeType: 'audio/mpeg',
+      size: 0,
+      source: 'upload',
+    }
+    player.play(synthetic)
+  }, [player])
+
+  const nowPlayingName = player.currentTrack
+    ? player.currentTrack.originalName.replace(/\.[^.]+$/, '')
+    : null
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-start py-10 px-4">
       <div className="w-full max-w-md flex flex-col gap-4">
         <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Vibe Player</h1>
+
+        <SearchBar onResults={setSearchResults} />
+        <SearchResults results={searchResults} onSelect={handleSearchSelect} />
 
         <FileUpload onUploaded={handleUploaded} />
 
@@ -48,13 +72,10 @@ export default function App() {
           )}
         </div>
 
-        {/* Player bar */}
         <div className="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-3">
           <div className="min-h-[1.25rem]">
-            {player.currentTrack ? (
-              <p className="text-sm font-medium text-zinc-100 truncate">
-                {player.currentTrack.originalName.replace(/\.[^.]+$/, '')}
-              </p>
+            {nowPlayingName ? (
+              <p className="text-sm font-medium text-zinc-100 truncate">{nowPlayingName}</p>
             ) : (
               <p className="text-sm text-zinc-600">Select a track to play</p>
             )}

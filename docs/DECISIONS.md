@@ -22,6 +22,19 @@ Will be added in Session 3A. Not needed for Phase 1.
 
 ---
 
+## Session 2A
+
+### Spotify Web API (Client Credentials) over a Spotify MCP server
+No production-ready Spotify MCP server exists for Claude Code. The Spotify Web API's Client Credentials flow achieves the same result with less infrastructure: the server exchanges `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` for a bearer token (cached in-memory, refreshed on expiry) and calls `GET /v1/search`. The endpoint returns 503 if credentials are absent, so the app degrades gracefully in development without `.env` values.
+
+### .env removed from git tracking
+`.env` was accidentally committed in early sessions. Removed with `git rm --cached .env`. The file is gitignored. Credentials (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`) must be set as environment variables in the Vercel dashboard for production and in local `.env` for development.
+
+### Spotify preview URLs played via Howler
+Spotify's 30-second preview URLs are direct MP3 links. Rather than building a separate audio path, a synthetic `Track` object is created from the preview URL and passed to the existing `usePlayer` hook. This reuses all existing playback infrastructure at zero cost.
+
+---
+
 ## Session 1B
 
 ### Howler.js for audio playback
