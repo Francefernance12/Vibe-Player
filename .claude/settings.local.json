@@ -6,7 +6,16 @@
       "Bash(npm test *)",
       "Bash(taskkill /F /IM node.exe)",
       "Bash(git add *)",
-      "Bash(opencode --model opencode/big-pickle --prompt 'You are a code reviewer. Do the following in order: *)"
+      "Bash(opencode --model opencode/big-pickle --prompt 'You are a code reviewer. Do the following in order: *)",
+      "Bash(npm create *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npm run *)",
+      "Bash(curl -s https://vibe-player.vercel.app/api/health)",
+      "Bash(curl -s https://vibe-player.vercel.app/api/tracks)",
+      "Bash(opencode run --model opencode/big-pickle 'You are a code reviewer. Do the following in order: *)",
+      "Bash(git rm *)",
+      "Bash(vercel --prod)",
+      "Bash(vercel env *)"
     ]
   }
 }

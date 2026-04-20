@@ -6,3 +6,6 @@ server/uploads/
 *.db
 dist/
 client/dist/
+
+.vercel
+.env*.local
