@@ -6,3 +6,13 @@ export interface Track {
   size: number
   source: 'sample' | 'upload'
 }
+
+export interface SearchTrack {
+  id: string
+  name: string
+  artist: string
+  album: string
+  durationMs: number
+  previewUrl: string | null
+  source: 'spotify'
+}

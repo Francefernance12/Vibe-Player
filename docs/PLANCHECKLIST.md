@@ -68,13 +68,15 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 2A — GitHub MCP + Spotify Search
 
-- ⬜ GitHub MCP configured in Claude Code settings
-- ⬜ Spotify MCP capabilities researched and documented
-- ⬜ `GET /api/search?q=` endpoint — proxies Spotify search
-- ⬜ `SearchBar` component added to frontend
-- ⬜ Search results displayed in UI
-- ⬜ Test: search endpoint returns expected shape (mock MCP response)
-- ⬜ **Checkpoint**: Typing in search bar returns real Spotify track metadata
+- ✅ GitHub MCP configured in Claude Code settings
+- ✅ Spotify Web API (Client Credentials) used directly — no separate MCP needed; documented in DECISIONS.md
+- ✅ `GET /api/search?q=` endpoint — calls Spotify search, returns normalized array
+- ✅ `SearchBar` component — debounced input, calls `/api/search`
+- ✅ `SearchResults` component — displays results alongside local tracks
+- ✅ Spotify preview URLs playable via Howler (synthetic Track object)
+- ✅ Test: search returns 400 with no query, 503 with no credentials, correct shape with mock
+- ✅ All tests pass: 8 server (2 files) + 13 client (4 files)
+- ⬜ **Checkpoint**: Typing in search bar returns real Spotify track metadata (needs SPOTIFY_CLIENT_ID/SECRET in Vercel env)
 
 ---
 
