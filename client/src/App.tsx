@@ -53,20 +53,28 @@ export default function App() {
 
   return (
     <PlaylistProvider>
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-start py-10 px-4">
-        <div className="w-full max-w-md flex flex-col gap-4">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Vibe Player</h1>
+      <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col items-center justify-start py-10 px-4">
+        <div className="w-full max-w-md flex flex-col gap-3">
 
-          <SearchBar onResults={setSearchResults} />
-          <SearchResults results={searchResults} onSelect={handleSearchSelect} />
+          {/* Wordmark */}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
+            <h1 className="font-display text-xl font-bold tracking-tight text-zinc-50">Vibe Player</h1>
+          </div>
+
+          {/* Search — results float as overlay, never push content */}
+          <div className="relative">
+            <SearchBar onResults={setSearchResults} />
+            <SearchResults results={searchResults} onSelect={handleSearchSelect} />
+          </div>
 
           <PlaylistPanel />
 
           <FileUpload onUploaded={handleUploaded} />
 
-          <div className="bg-zinc-900 rounded-2xl overflow-hidden">
+          <div className="bg-[#111113] border border-[#1e1e21] rounded-2xl overflow-hidden">
             {loading ? (
-              <p className="text-zinc-500 text-sm p-4 text-center">Loading tracks…</p>
+              <p className="text-zinc-600 text-sm p-4 text-center">Loading tracks…</p>
             ) : (
               <TrackList
                 tracks={tracks}
@@ -76,7 +84,8 @@ export default function App() {
             )}
           </div>
 
-          <div className="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-3">
+          {/* Player */}
+          <div className="bg-[#111113] border border-[#1e1e21] rounded-2xl p-4 flex flex-col gap-3">
             <div className="min-h-[1.25rem]">
               {nowPlayingName ? (
                 <p className="text-sm font-medium text-zinc-100 truncate">{nowPlayingName}</p>
@@ -104,6 +113,7 @@ export default function App() {
               <VolumeControl volume={player.volume} onVolumeChange={player.setVolume} />
             </div>
           </div>
+
         </div>
       </div>
     </PlaylistProvider>

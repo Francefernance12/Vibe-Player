@@ -27,6 +27,6 @@ test('renders elapsed and duration spans', () => {
     />
   )
   // Two time spans present (elapsed + duration)
-  const spans = container.querySelectorAll('span.tabular-nums')
+  const spans = container.querySelectorAll('span.font-mono')
   expect(spans).toHaveLength(2)
 })

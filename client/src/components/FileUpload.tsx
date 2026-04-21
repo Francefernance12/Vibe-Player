@@ -18,7 +18,10 @@ export function FileUpload({ onUploaded }: Props) {
       const fd = new FormData()
       fd.append('file', file)
       const res = await fetch('/api/tracks/upload', { method: 'POST', body: fd })
-      if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? `Upload failed: ${res.status}`)
+      }
       const track = await res.json() as Track
       onUploaded(track)
     } catch (err) {
@@ -45,8 +48,11 @@ export function FileUpload({ onUploaded }: Props) {
         onDrop={onDrop}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors
-          ${dragging ? 'border-indigo-400 bg-indigo-950/30' : 'border-zinc-700 hover:border-zinc-500'}`}
+        className={`border rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors ${
+          dragging
+            ? 'border-orange-500/50 bg-orange-500/5 text-orange-400'
+            : 'border-[#1e1e21] hover:border-zinc-600 text-zinc-500 hover:text-zinc-400'
+        }`}
       >
         <input
           ref={inputRef}
@@ -55,11 +61,14 @@ export function FileUpload({ onUploaded }: Props) {
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) upload(f) }}
         />
-        <p className="text-sm text-zinc-400">
-          {uploading ? 'Uploading…' : 'Drop an audio file here, or click to browse'}
-        </p>
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 flex-shrink-0">
+          <path d="M10 3l-4 4h3v6h2V7h3L10 3zM4 15h12v2H4v-2z" />
+        </svg>
+        <span className="text-sm">
+          {uploading ? 'Uploading…' : 'Drop audio file or click to browse'}
+        </span>
       </div>
-      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+      {error && <p className="text-xs text-red-400 mt-1.5 px-1">{error}</p>}
     </div>
   )
 }

@@ -13,14 +13,17 @@ export function SearchBar({ onResults }: Props) {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!query.trim()) { onResults([]); return }
+    if (!query.trim()) { onResults([]); setError(null); return }
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
       setError(null)
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
-        if (!res.ok) throw new Error(`Search failed: ${res.statusText}`)
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          throw new Error(body?.error ?? `Search failed: ${res.status}`)
+        }
         onResults(await res.json())
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Search failed')
@@ -34,19 +37,28 @@ export function SearchBar({ onResults }: Props) {
   }, [query, onResults])
 
   return (
-    <div className="relative">
-      <input
-        type="search"
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Search Deezer…"
-        aria-label="Search Deezer"
-        className="w-full bg-zinc-800 text-zinc-100 placeholder-zinc-500 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-      />
-      {loading && (
-        <span className="absolute right-3 top-2.5 text-xs text-zinc-500">Searching…</span>
-      )}
-      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+    <div>
+      <div className="relative">
+        <svg
+          viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
+        >
+          <circle cx="8.5" cy="8.5" r="5.5" />
+          <path d="M13 13l3.5 3.5" strokeLinecap="round" />
+        </svg>
+        <input
+          type="search"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search Deezer…"
+          aria-label="Search Deezer"
+          className="w-full bg-[#111113] border border-[#1e1e21] text-zinc-100 placeholder-zinc-600 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/30 transition-colors"
+        />
+        {loading && (
+          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-zinc-600 border-t-orange-400 rounded-full animate-spin" />
+        )}
+      </div>
+      {error && <p className="text-xs text-red-400 mt-1.5 px-1">{error}</p>}
     </div>
   )
 }
