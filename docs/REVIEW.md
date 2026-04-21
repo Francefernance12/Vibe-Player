@@ -90,3 +90,48 @@
 2. **Add search provider abstraction**: Consider abstracting the search provider (Spotify/Dezer) to make it swappable.
 
 3. **Sample file strategy**: Decide if samples should be in repo or fetched from external source.
+
+---
+
+## Date: 2026-04-20
+
+## Branch Name: main (current)
+
+## What Changed
+
+13 files changed, 539 insertions(+), 134 deletions(-)
+
+### Files Modified:
+- `client/package-lock.json` - Dependencies
+- `client/package.json` - Dependencies
+- `client/src/App.tsx` - App component
+- `client/src/__tests__/PlaylistContext.test.tsx` - Playlist context test
+- `client/src/__tests__/TrackList.test.tsx` - TrackList test
+- `client/src/components/PlaylistPanel.tsx` - Playlist panel component
+- `client/src/components/SearchResults.tsx` - Search results component
+- `client/src/components/TrackList.tsx` - Track list component
+- `client/src/contexts/PlaylistContext.tsx` - Playlist context
+- `docs/PLAN.md` - Project plan
+- `docs/PLANCHECKLIST.md` - Planning checklist
+- `docs/REVIEW.md` - This review file
+- `.claude/commands/commitReview.md` - Commit command
+
+### Summary:
+- Added playlist management with drag-and-drop persistence
+- Added PlaylistPanel component
+- Added PlaylistContext with state management
+- Updated tests for playlist functionality
+
+## Issues Spotted
+
+1. **State persistence**: Verify that playlist order is properly persisted across page reloads - check localStorage usage.
+
+2. **No confirmation dialogs**: The UI lacks confirmation dialogs when deleting playlists or tracks.
+
+## Suggestions
+
+1. **Add undo functionality**: Consider adding undo for playlist/track removal actions.
+
+2. **Optimistic updates**: The drag-and-drop could use optimistic UI updates for better UX.
+
+3. **Accessibility**: Ensure drag-and-drop is keyboard accessible.
