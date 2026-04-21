@@ -111,16 +111,19 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 2B — Playlist Management (Frontend Only)
 
-- ⬜ `PlaylistContext` created with React context
-- ⬜ "Add to playlist" button on each track (local + Deezer results)
-- ⬜ `PlaylistPanel` component with reorderable list
-- ⬜ `@dnd-kit/core` installed for drag-and-drop
-- ⬜ Playlist persisted to `localStorage` with versioned key (`playlist:v1`)
-- ⬜ `localStorage` access wrapped in try/catch
-- ⬜ Test: add track to playlist
-- ⬜ Test: remove track from playlist
-- ⬜ Test: reorder tracks in playlist
-- ⬜ All tests pass
+- ✅ `PlaylistContext` created with React context (`/client/src/contexts/PlaylistContext.tsx`)
+- ✅ "Add to playlist" button on each track (local + Deezer results), shows ✓ when already added
+- ✅ `PlaylistPanel` component with reorderable list (`@dnd-kit/sortable`)
+- ✅ `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` installed
+- ✅ Playlist persisted to `localStorage` with versioned key (`playlist:v1`)
+- ✅ `localStorage` access wrapped in try/catch
+- ✅ Test: add local track to playlist
+- ✅ Test: add Deezer track to playlist
+- ✅ Test: no duplicates added
+- ✅ Test: remove track from playlist
+- ✅ Test: reorder tracks in playlist
+- ✅ Test: persists to localStorage and reloads
+- ✅ All tests pass: 8 server (2 files) + 20 client (5 files)
 - ⬜ **Checkpoint**: Playlist persists on page refresh
 
 > Note: YouTube streaming was the original Session 2B. Moved to Phase 4 backlog

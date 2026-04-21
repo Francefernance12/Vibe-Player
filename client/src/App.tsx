@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Track, SearchTrack } from './types'
 import { usePlayer } from './hooks/usePlayer'
+import { PlaylistProvider } from './contexts/PlaylistContext'
 import { TrackList } from './components/TrackList'
 import { PlayerControls } from './components/PlayerControls'
 import { ProgressBar } from './components/ProgressBar'
@@ -8,6 +9,7 @@ import { VolumeControl } from './components/VolumeControl'
 import { FileUpload } from './components/FileUpload'
 import { SearchBar } from './components/SearchBar'
 import { SearchResults } from './components/SearchResults'
+import { PlaylistPanel } from './components/PlaylistPanel'
 
 export default function App() {
   const [tracks, setTracks] = useState<Track[]>([])
@@ -50,56 +52,60 @@ export default function App() {
     : null
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-start py-10 px-4">
-      <div className="w-full max-w-md flex flex-col gap-4">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Vibe Player</h1>
+    <PlaylistProvider>
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-start py-10 px-4">
+        <div className="w-full max-w-md flex flex-col gap-4">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Vibe Player</h1>
 
-        <SearchBar onResults={setSearchResults} />
-        <SearchResults results={searchResults} onSelect={handleSearchSelect} />
+          <SearchBar onResults={setSearchResults} />
+          <SearchResults results={searchResults} onSelect={handleSearchSelect} />
 
-        <FileUpload onUploaded={handleUploaded} />
+          <PlaylistPanel />
 
-        <div className="bg-zinc-900 rounded-2xl overflow-hidden">
-          {loading ? (
-            <p className="text-zinc-500 text-sm p-4 text-center">Loading tracks…</p>
-          ) : (
-            <TrackList
-              tracks={tracks}
-              currentTrack={player.currentTrack}
-              onSelect={handleSelect}
-            />
-          )}
-        </div>
+          <FileUpload onUploaded={handleUploaded} />
 
-        <div className="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-3">
-          <div className="min-h-[1.25rem]">
-            {nowPlayingName ? (
-              <p className="text-sm font-medium text-zinc-100 truncate">{nowPlayingName}</p>
+          <div className="bg-zinc-900 rounded-2xl overflow-hidden">
+            {loading ? (
+              <p className="text-zinc-500 text-sm p-4 text-center">Loading tracks…</p>
             ) : (
-              <p className="text-sm text-zinc-600">Select a track to play</p>
+              <TrackList
+                tracks={tracks}
+                currentTrack={player.currentTrack}
+                onSelect={handleSelect}
+              />
             )}
           </div>
 
-          <ProgressBar
-            isPlaying={player.isPlaying}
-            getDuration={player.getDuration}
-            getSeek={player.getSeek}
-            onSeek={player.seek}
-          />
+          <div className="bg-zinc-900 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="min-h-[1.25rem]">
+              {nowPlayingName ? (
+                <p className="text-sm font-medium text-zinc-100 truncate">{nowPlayingName}</p>
+              ) : (
+                <p className="text-sm text-zinc-600">Select a track to play</p>
+              )}
+            </div>
 
-          <div className="flex items-center justify-between">
-            <PlayerControls
+            <ProgressBar
               isPlaying={player.isPlaying}
-              hasTrack={player.currentTrack !== null}
-              onPlay={player.resume}
-              onPause={player.pause}
-              onNext={player.next}
-              onPrev={player.prev}
+              getDuration={player.getDuration}
+              getSeek={player.getSeek}
+              onSeek={player.seek}
             />
-            <VolumeControl volume={player.volume} onVolumeChange={player.setVolume} />
+
+            <div className="flex items-center justify-between">
+              <PlayerControls
+                isPlaying={player.isPlaying}
+                hasTrack={player.currentTrack !== null}
+                onPlay={player.resume}
+                onPause={player.pause}
+                onNext={player.next}
+                onPrev={player.prev}
+              />
+              <VolumeControl volume={player.volume} onVolumeChange={player.setVolume} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </PlaylistProvider>
   )
 }
