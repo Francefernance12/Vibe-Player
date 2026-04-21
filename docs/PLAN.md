@@ -16,7 +16,6 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 | Main agent          | Claude Code (`claude`)                               | Primary development              |
 | Sub-agent           | OpenCode (`opencode/big-pickle`)                     | Commit review + PR creation      |
 | Claude Code command | `/commitReview` — `.claude/commands/commitReview.md` | Manual end-of-session trigger    |
-| MCP                 | YouTube Music MCP                                    | Phase 2 — audio streaming (TBD)  |
 | Plugin              | `frontend-design@claude-plugins-official`            | High-quality UI generation       |
 | Skill               | `vercel-react-best-practices`                        | Re-render and performance rules  |
 | Playwright MCP      | (optional)                                           | Live browser testing of playback |
@@ -24,7 +23,7 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 
 > GitHub MCP is not used. Git and PR operations are handled by the opencode sub-agent via the `/commitReview` slash command. Run `/commitReview` manually at the end of each session — there is no auto-hook.
 >
-> External music API strategy (Spotify, YouTube, etc.) will be decided at the start of Phase 2. Direct REST APIs will be used rather than MCPs.
+> Spotify was attempted in Session 2A but requires Premium to use the Web API search endpoint. Replaced with Deezer public API — no API key, no OAuth, no account required. See docs/DECISIONS.md for full context.
 
 ---
 
@@ -44,13 +43,13 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 │
 ├── client/                        ← React/TS frontend (Vite)
 │   └── src/
-│       ├── components/            ← TrackList, PlayerControls, ProgressBar, etc.
+│       ├── components/            ← TrackList, PlayerControls, SearchBar, etc.
 │       ├── contexts/              ← PlaylistContext, AuthContext (Phase 3)
 │       ├── pages/                 ← LoginPage, RegisterPage (Phase 3)
 │       └── hooks/                 ← usePlayer, usePlaylist, etc.
 │
 ├── server/                        ← Node/Express backend
-│   ├── routes/                    ← tracks, upload, stream, auth, search
+│   ├── routes/                    ← tracks, upload, stream, search
 │   ├── db/                        ← migrations + index.ts (Phase 3)
 │   ├── uploads/                   ← user-uploaded audio (gitignored)
 │   └── samples/                   ← bundled royalty-free tracks
@@ -87,6 +86,7 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 | Styling            | Tailwind CSS                         |
 | Audio              | Howler.js                            |
 | Backend            | Node.js + Express                    |
+| Search             | Deezer public API (no key required)  |
 | Database           | SQLite via better-sqlite3 (Phase 3+) |
 | Testing (backend)  | Jest + Supertest                     |
 | Testing (frontend) | Vitest + React Testing Library       |
@@ -134,78 +134,82 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 
 **Deployed**: https://vibe-player.vercel.app
 
-Sessions 1A, 1B, and 1C are complete. See `docs/PLANCHECKLIST.md` for the full item-by-item breakdown. The live URL serves the app with upload, playback, seek, volume control, and sample tracks working end-to-end.
-
-**Outstanding note from** `docs/REVIEW.md`: The root `tsconfig.json` added in Session 1C may conflict with `server/tsconfig.json`. Verify there is no build conflict before starting Session 2A.
+Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, playback, seek, volume control, and sample tracks working end-to-end.
 
 ---
 
 ## Phase 2 — External APIs
 
-**Goal**: Search and stream from an external music source. Playlist management persisted to localStorage (no database yet).
+**Goal**: Search and stream from Deezer. Playlist management persisted to localStorage (no database yet).
 
-> The external API approach will be decided at the start of Session 2A. Research options (Spotify Web API, YouTube Data API, SoundCloud API, or yt-dlp for YouTube audio) and document the chosen approach in `docs/DECISIONS.md` before writing any code. Direct REST APIs will be used — no MCPs. Key considerations: free tier availability, OAuth complexity, TOS restrictions on audio streaming.
+**API choice**: Deezer public API. No API key, no OAuth, no `.env` variables required. Search and 30-second preview MP3 URLs are available to anonymous requests. See `docs/DECISIONS.md` for the full rationale and the history of the Spotify attempt.
 
 ---
 
-### Session 2A — External API Research + Search Endpoint
+### Session 2A — Deezer Search (REPLACES Spotify attempt) 🔄
 
-**Deliverable**: Working search bar returning real track metadata from a chosen API.
+**Context**: Spotify code was built in a prior attempt but is blocked because the Web API requires a Premium subscription. All Spotify-related files must be removed and replaced with a Deezer implementation. No `.env` variables are needed for Deezer.
+
+**Deliverable**: Working search bar returning Deezer track metadata, with 30-second previews playable via the existing Howler.js player.
 
 Steps:
 
-1. Research and pick an external music API — document the decision in `docs/DECISIONS.md`
-  - Spotify Web API: rich metadata, requires OAuth, no direct audio streaming
-  - YouTube Data API: search works, audio extraction has TOS restrictions
-  - SoundCloud API: free tier available, direct audio URLs on some tracks
-  - Last.fm API: metadata only, no streaming
-2. Register API credentials and store in `.env`
-3. Add `GET /api/search?q=` endpoint — proxy search results from the chosen API
-4. Build `SearchBar` component in the frontend
-5. Display search results alongside local tracks in `TrackList`
-6. Write Supertest tests — mock the external API response
-7. Update `docs/PLANCHECKLIST.md`
-8. Commit, run `/commitReview`
+1. Add decision entry to `docs/DECISIONS.md` — Deezer chosen over Spotify, reason: no auth required, 30-second preview MP3 URLs available for free
+2. Remove all Spotify-specific code:
+  - `server/src/routes/search.ts` — rewrite for Deezer
+  - `server/src/__tests__/search.test.ts` — rewrite tests
+  - `client/src/components/SearchBar.tsx` — keep, rewire to new endpoint
+  - `client/src/components/SearchResults.tsx` — keep, update types
+  - `client/src/__tests__/SearchBar.test.tsx` — update mocks
+  - Remove `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` from `.env` and any token-caching logic in the server
+3. Implement Deezer search endpoint:
+  - `GET /api/search?q=` proxies `https://api.deezer.com/search?q=`
+  - Returns normalized array: `{ id, title, artist, albumArt, previewUrl, durationMs }`
+  - Returns 400 if `q` is missing or empty
+  - No credentials needed — direct fetch, no token logic
+4. Wire `previewUrl` to the existing `usePlayer` hook via a synthetic `Track` object — same pattern as local tracks, just a different URL source
+5. Update `client/src/types.ts` — replace any Spotify-specific types with source-agnostic `Track` shape (source: `'local' | 'deezer'`)
+6. Rewrite tests:
+  - `GET /api/search` returns 400 with no query
+  - `GET /api/search?q=test` returns correct shape (mock `fetch` to Deezer)
+  - `SearchBar` renders results from mock data
+7. Run full test suite — all must pass
+8. Manual smoke test: search "radiohead", click a result, audio plays
+9. Update `docs/PLANCHECKLIST.md`
+10. Commit, run `/commitReview`
 
-**Checkpoint**: Typing in the search bar returns real track metadata from the chosen API.
+**Checkpoint**: Search "radiohead" → results appear → click a track → 30-second preview plays through the existing player.
+
+**Deezer API reference**:
+
+```
+Search:  GET https://api.deezer.com/search?q=radiohead
+Track:   GET https://api.deezer.com/track/3135556
+
+```
+
+Key response fields: `id`, `title`, `artist.name`, `album.cover_medium`, `preview` (direct MP3 URL), `duration` (seconds).
 
 ---
 
-### Session 2B — Audio Streaming from External Source
-
-**Deliverable**: Tracks from the external API play in the player.
-
-> This session's approach depends on the API chosen in 2A. If Spotify: use 30-second preview URLs (no OAuth needed for previews). If YouTube: research yt-dlp or a Node.js wrapper. Document the approach first.
-
-Steps:
-
-1. Confirm audio streaming approach — document in `docs/DECISIONS.md`
-2. Add streaming or proxy endpoint as needed
-3. Wire search result tracks to Howler.js so they play when clicked
-4. Handle loading states (external audio may take longer to buffer than local files)
-5. Write tests for the streaming/proxy endpoint
-6. Update `docs/PLANCHECKLIST.md`
-7. Commit, run `/commitReview`
-
-**Checkpoint**: Click a search result → audio plays in the player.
-
----
-
-### Session 2C — Playlist Management (Frontend Only)
+### Session 2B — Playlist Management (Frontend Only)
 
 **Deliverable**: Reorderable playlist that persists across page refreshes.
 
 Steps:
 
 1. Create `PlaylistContext` in `/client/src/contexts/`
-2. Add "Add to playlist" button on each track (local + search results)
+2. Add "Add to playlist" button on each track (local + Deezer results)
 3. Build `PlaylistPanel` component with drag-and-drop (`@dnd-kit/core`)
 4. Persist playlist to `localStorage` — temporary, replaced in Phase 3
-5. Write Vitest tests for playlist context: add, remove, reorder
-6. Update `docs/PLANCHECKLIST.md`
-7. Commit, run `/commitReview` — opencode creates PR from `phase-2` branch into `main`
+5. Version the localStorage key (`playlist:v1`) and wrap in try/catch per the `client-localstorage-schema` rule in the Vercel best-practices skill
+6. Write Vitest tests for playlist context: add, remove, reorder
+7. Update `docs/PLANCHECKLIST.md`
+8. Commit, run `/commitReview` — opencode creates PR from `phase-2` branch into `main`
 
-**Checkpoint**: Build a playlist from local + search tracks, reorder it, refresh — it persists.
+**Checkpoint**: Build a playlist from local + Deezer tracks, reorder it, refresh — it persists.
+
+> Note: Session 2B was previously "YouTube Audio Streaming". That feature is moved to the Phase 4 backlog — it has TOS complexity that is not worth blocking Phase 3 over. Playlist management is more valuable to implement now.
 
 ---
 
@@ -213,22 +217,24 @@ Steps:
 
 **Goal**: Users can register, log in, and have playlists saved server-side. `docs/DATABASE_SCHEMA.md` already exists and is approved — use it as the source of truth. Do not deviate from it without updating the doc first.
 
+> Note: `DATABASE_SCHEMA.md` still references `'spotify'` as a source value in `playlist_tracks`. Update it to `'deezer'` before Session 3A begins.
+
 ---
 
-### Session 3A — SQLite Setup + Migrations
+### Session 3A — Schema Update + SQLite Setup
 
 **Deliverable**: All database operations tested with in-memory SQLite.
 
 Steps:
 
-1. Confirm `docs/DATABASE_SCHEMA.md` is the approved version before writing code
+1. Update `docs/DATABASE_SCHEMA.md`: change source enum from `'local' | 'spotify' | 'youtube'` to `'local' | 'deezer'` and update the Deezer track JSON shape accordingly
 2. Install `better-sqlite3`
 3. Create `/server/db/migrations/`:
   - `001_create_users.sql`
   - `002_create_playlists.sql`
   - `003_create_playlist_tracks.sql`
-  - Write these exactly from `docs/DATABASE_SCHEMA.md` — no deviations
-4. Write `/server/db/migrate.ts` — simple runner that executes migrations in order
+  - Write these exactly from the updated `docs/DATABASE_SCHEMA.md`
+4. Write `/server/db/migrate.ts` — simple runner, executes migrations in order
 5. Write `/server/db/index.ts` — typed query helpers for all tables
 6. Write Jest tests for all DB operations using `:memory:` database
 7. Run `npm run test:server` — all must pass
@@ -300,7 +306,7 @@ Steps:
 2. Run Lighthouse on the live Vercel URL
 3. Fix any score below 80 on mobile (lazy loading, bundle splitting)
 4. Run `vite-plugin-visualizer` to inspect bundle composition
-5. Confirm `ProgressBar` Howler.js ticks do not cause re-renders (ref-based approach from 1B)
+5. Confirm `ProgressBar` Howler.js ticks do not cause re-renders
 6. Add loading skeletons to `TrackList` and search results
 7. Update `docs/PLANCHECKLIST.md`
 8. Commit, run `/commitReview`
@@ -335,6 +341,7 @@ Steps:
 
 **Backlog ideas to score**:
 
+- YouTube audio streaming (yt-dlp wrapper — deferred from Phase 2)
 - Offline mode (service worker + Cache API)
 - Waveform visualizer (Web Audio API `AnalyserNode`)
 - Collaborative playlist URLs (read-only, no login required)

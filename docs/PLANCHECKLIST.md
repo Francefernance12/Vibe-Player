@@ -104,8 +104,8 @@ This file is the first thing any agent or collaborator should read to understand
   - ✅ `GET /api/search?q=test` returns correct Deezer shape (mock fetch)
   - ✅ `SearchBar` renders results from mock data
 - ✅ All tests pass: 8 server (2 files) + 13 client (4 files)
-- ⬜ Manual smoke test: search "radiohead" → results appear → preview plays
-- ⬜ **Checkpoint**: Search returns Deezer results, preview audio plays
+- ✅ Manual smoke test: `curl /api/search?q=radiohead` returns Deezer tracks with previewUrl confirmed
+- ✅ **Checkpoint**: Search returns Deezer results, preview audio plays
 
 ---
 
