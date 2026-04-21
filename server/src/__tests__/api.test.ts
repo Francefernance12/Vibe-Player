@@ -41,6 +41,34 @@ describe('POST /api/tracks/upload', () => {
   });
 });
 
+describe('DELETE /api/tracks/:filename', () => {
+  it('returns 403 when trying to delete a sample track', async () => {
+    const res = await request(app).delete('/api/tracks/sample1.mp3');
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 for a non-existent file', async () => {
+    const res = await request(app).delete('/api/tracks/doesnotexist.mp3');
+    expect(res.status).toBe(404);
+  });
+
+  it('deletes an uploaded file and returns 204', async () => {
+    // Upload a file first
+    const upload = await request(app)
+      .post('/api/tracks/upload')
+      .attach('file', SAMPLE_MP3);
+    expect(upload.status).toBe(201);
+    const { filename } = upload.body;
+
+    const del = await request(app).delete(`/api/tracks/${filename}`);
+    expect(del.status).toBe(204);
+
+    // Confirm it is gone
+    const stream = await request(app).get(`/api/tracks/${filename}/stream`);
+    expect(stream.status).toBe(404);
+  });
+});
+
 describe('GET /api/tracks/:filename/stream', () => {
   it('returns a response with audio Content-Type for a sample file', async () => {
     const res = await request(app).get('/api/tracks/sample1.mp3/stream');

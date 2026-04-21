@@ -34,8 +34,11 @@ export function usePlayer(tracks: Track[]): PlayerState & PlayerControls {
 
   const play = useCallback((track: Track) => {
     destroyHowl()
+    const src = track.externalUrl
+      ? [track.externalUrl]
+      : [`/api/tracks/${encodeURIComponent(track.filename)}/stream`]
     const howl = new Howl({
-      src: [`/api/tracks/${encodeURIComponent(track.filename)}/stream`],
+      src,
       html5: true,
       volume,
       onplay: () => setIsPlaying(true),

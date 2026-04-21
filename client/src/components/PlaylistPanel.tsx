@@ -12,7 +12,13 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { Track } from '../types'
 import { usePlaylist, PlaylistItem } from '../contexts/PlaylistContext'
+
+interface Props {
+  onPlay: (item: PlaylistItem) => void
+  currentTrack: Track | null
+}
 
 function itemId(item: PlaylistItem) {
   return item.kind === 'local' ? item.track.id : item.track.id
@@ -21,6 +27,12 @@ function itemId(item: PlaylistItem) {
 function itemLabel(item: PlaylistItem) {
   if (item.kind === 'local') return item.track.originalName.replace(/\.[^.]+$/, '')
   return `${item.track.title} — ${item.track.artist}`
+}
+
+function isActive(item: PlaylistItem, currentTrack: Track | null): boolean {
+  if (!currentTrack) return false
+  if (item.kind === 'local') return item.track.filename === currentTrack.filename
+  return item.track.id === currentTrack.id
 }
 
 function DragHandle() {
@@ -41,7 +53,17 @@ function RemoveIcon() {
   )
 }
 
-function SortableRow({ item, onRemove }: { item: PlaylistItem; onRemove: () => void }) {
+function SortableRow({
+  item,
+  active,
+  onPlay,
+  onRemove,
+}: {
+  item: PlaylistItem
+  active: boolean
+  onPlay: () => void
+  onRemove: () => void
+}) {
   const id = itemId(item)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 
@@ -50,21 +72,30 @@ function SortableRow({ item, onRemove }: { item: PlaylistItem; onRemove: () => v
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`flex items-center gap-2.5 px-4 py-3 select-none transition-colors ${
-        isDragging ? 'bg-orange-500/5 opacity-70' : 'hover:bg-white/[0.02]'
+        isDragging ? 'bg-orange-500/5 opacity-70' : active ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'
       }`}
     >
       <span
         {...attributes}
         {...listeners}
-        className="text-zinc-700 hover:text-zinc-400 cursor-grab active:cursor-grabbing transition-colors"
+        className="text-zinc-700 hover:text-zinc-400 cursor-grab active:cursor-grabbing transition-colors flex-shrink-0"
         aria-label="Drag to reorder"
       >
         <DragHandle />
       </span>
-      <p className="flex-1 text-sm text-zinc-300 truncate">{itemLabel(item)}</p>
+      <button
+        onClick={onPlay}
+        className="flex-1 text-left min-w-0"
+        aria-label={`Play ${itemLabel(item)}`}
+      >
+        <p className={`text-sm truncate transition-colors ${active ? 'text-orange-300' : 'text-zinc-300 hover:text-zinc-100'}`}>
+          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 mr-1.5 mb-0.5" />}
+          {itemLabel(item)}
+        </p>
+      </button>
       <button
         onClick={onRemove}
-        className="text-zinc-700 hover:text-red-400 transition-colors p-0.5 rounded"
+        className="text-zinc-700 hover:text-red-400 transition-colors p-0.5 rounded flex-shrink-0"
         aria-label="Remove from playlist"
       >
         <RemoveIcon />
@@ -73,7 +104,7 @@ function SortableRow({ item, onRemove }: { item: PlaylistItem; onRemove: () => v
   )
 }
 
-export function PlaylistPanel() {
+export function PlaylistPanel({ onPlay, currentTrack }: Props) {
   const { items, remove, reorder } = usePlaylist()
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -97,7 +128,13 @@ export function PlaylistPanel() {
         <SortableContext items={items.map(itemId)} strategy={verticalListSortingStrategy}>
           <ul className="divide-y divide-[#1e1e21]">
             {items.map(item => (
-              <SortableRow key={itemId(item)} item={item} onRemove={() => remove(itemId(item))} />
+              <SortableRow
+                key={itemId(item)}
+                item={item}
+                active={isActive(item, currentTrack)}
+                onPlay={() => onPlay(item)}
+                onRemove={() => remove(itemId(item))}
+              />
             ))}
           </ul>
         </SortableContext>

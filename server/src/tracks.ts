@@ -51,4 +51,8 @@ export function resolveTrackPath(filename: string): string | null {
   return null;
 }
 
+export function isSampleFilename(filename: string): boolean {
+  return fs.existsSync(path.join(SAMPLES_DIR, filename))
+}
+
 export { UPLOADS_DIR, AUDIO_MIME };

@@ -6,13 +6,14 @@ interface Props {
   tracks: Track[]
   currentTrack: Track | null
   onSelect: (track: Track) => void
+  onDelete: (track: Track) => void
 }
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-export const TrackList = memo(function TrackList({ tracks, currentTrack, onSelect }: Props) {
+export const TrackList = memo(function TrackList({ tracks, currentTrack, onSelect, onDelete }: Props) {
   const { addLocal, items } = usePlaylist()
 
   if (tracks.length === 0) {
@@ -57,6 +58,17 @@ export const TrackList = memo(function TrackList({ tracks, currentTrack, onSelec
                 </svg>
               )}
             </button>
+            {track.source === 'upload' && (
+              <button
+                onClick={() => onDelete(track)}
+                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-zinc-700 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                aria-label="Delete track"
+              >
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                  <path d="M6 2a1 1 0 0 0-1 1v.5H2.5v1H4v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-8h1.5v-1H11V3a1 1 0 0 0-1-1H6zm0 1h4v.5H6V3zm-1 2h6v7.5H5V5zm2 1.5v4h1v-4H7zm2 0v4h1v-4H9z" />
+                </svg>
+              </button>
+            )}
           </li>
         )
       })}

@@ -35,6 +35,16 @@ Deezer's 30-second preview URLs are direct MP3 links. A synthetic `Track` object
 
 ---
 
+## Phase 2 Polish Pass — "Wax" Design System
+
+### Orange accent + Syne + JetBrains Mono
+Replaced the default indigo Tailwind accent with a cohesive "Wax" design system: orange-500 (`#f97316`) as the sole accent color, `#0a0a0b` body, `#111113` card surfaces, `#1e1e21` borders. Syne (Google Fonts, weight 700/800) for the wordmark; JetBrains Mono for timestamps and metadata labels. Reasoning: avoids generic AI-generated aesthetics; orange provides high contrast on near-black backgrounds without the over-used purple/indigo gradient look.
+
+### Search results as absolute overlay
+`SearchResults` is now positioned `absolute top-full z-50` inside a `relative` wrapper, floating over the layout rather than pushing content down. This prevents the search dropdown from reflowing the playlist and track list panels beneath it.
+
+---
+
 ## Session 1B
 
 ### Howler.js for audio playback
