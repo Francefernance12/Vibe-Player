@@ -20,6 +20,7 @@ function fmt(s: number): string {
 export function ProgressBar({ isPlaying, getDuration, getSeek, onSeek }: Props) {
   const barRef = useRef<HTMLDivElement>(null)
   const fillRef = useRef<HTMLDivElement>(null)
+  const thumbRef = useRef<HTMLDivElement>(null)
   const elapsedRef = useRef<HTMLSpanElement>(null)
   const durationRef = useRef<HTMLSpanElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -28,7 +29,9 @@ export function ProgressBar({ isPlaying, getDuration, getSeek, onSeek }: Props) 
     const dur = getDuration()
     const seek = getSeek()
     const ratio = dur > 0 ? seek / dur : 0
-    if (fillRef.current) fillRef.current.style.width = `${ratio * 100}%`
+    const pct = `${ratio * 100}%`
+    if (fillRef.current) fillRef.current.style.width = pct
+    if (thumbRef.current) thumbRef.current.style.left = pct
     if (elapsedRef.current) elapsedRef.current.textContent = fmt(seek)
     if (durationRef.current) durationRef.current.textContent = fmt(dur)
     rafRef.current = requestAnimationFrame(tick)
@@ -52,17 +55,23 @@ export function ProgressBar({ isPlaying, getDuration, getSeek, onSeek }: Props) 
   }, [onSeek])
 
   return (
-    <div className="flex items-center gap-2 w-full select-none">
-      <span ref={elapsedRef} className="text-xs text-zinc-500 w-8 text-right tabular-nums">0:00</span>
+    <div className="flex items-center gap-3 w-full select-none">
+      <span ref={elapsedRef} className="font-mono text-[11px] text-zinc-500 w-8 text-right">0:00</span>
       <div
         ref={barRef}
         onClick={handleClick}
-        className="flex-1 h-1.5 bg-zinc-700 rounded-full cursor-pointer relative group"
+        className="flex-1 h-1 bg-[#2a2a2d] rounded-full cursor-pointer relative group py-2 -my-2"
       >
-        <div ref={fillRef} className="h-full bg-indigo-400 rounded-full transition-none" style={{ width: '0%' }} />
-        <div className="absolute inset-y-0 -top-1.5 -bottom-1.5 left-0 right-0" />
+        <div className="absolute inset-y-0 my-auto h-1 w-full rounded-full">
+          <div ref={fillRef} className="h-full bg-orange-500 rounded-full transition-none" style={{ width: '0%' }} />
+        </div>
+        <div
+          ref={thumbRef}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-orange-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+          style={{ left: '0%' }}
+        />
       </div>
-      <span ref={durationRef} className="text-xs text-zinc-500 w-8 tabular-nums">0:00</span>
+      <span ref={durationRef} className="font-mono text-[11px] text-zinc-500 w-8">0:00</span>
     </div>
   )
 }

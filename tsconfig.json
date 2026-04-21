@@ -8,6 +8,6 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["api/**/*"],
-  "exclude": ["node_modules", "client", "server"]
+  "include": ["api/**/*", "server/src/**/*"],
+  "exclude": ["node_modules", "client", "server/dist", "server/**/*.test.ts"]
 }
