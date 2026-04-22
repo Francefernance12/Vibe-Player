@@ -181,3 +181,45 @@
 2. **Consider component tests**: Add unit tests for individual components if missing.
 
 3. **Theme documentation**: Document the custom Wax theme configuration for future developers.
+
+---
+
+## Date: 2026-04-21
+
+## Branch Name: session-2c
+
+## What Changed
+
+14 files changed, 345 insertions(+), 92 deletions(-)
+
+### Files Modified:
+- `shared/types.ts` — added `externalUrl?: string` to Track interface
+- `client/src/hooks/usePlayer.ts` — play() now uses externalUrl as Howler src when present
+- `client/src/App.tsx` — wired playlist playback, delete handler, filter/sort state
+- `client/src/components/PlaylistPanel.tsx` — added onPlay prop, clickable rows, active item highlight
+- `client/src/components/TrackList.tsx` — added onDelete prop, delete button for upload rows only
+- `client/src/utils/trackFilter.ts` — new: filterAndSortTracks utility (filter + 5 sort modes)
+- `client/src/__tests__/TrackList.test.tsx` — updated for new props; added delete button tests
+- `client/src/__tests__/trackFilter.test.ts` — new: 7 tests for filter and sort logic
+- `server/src/tracks.ts` — added isSampleFilename() helper
+- `server/src/routes/tracks.ts` — added DELETE /api/tracks/:filename (403 sample, 404 missing, 204 ok)
+- `server/src/__tests__/api.test.ts` — 3 new delete endpoint tests
+- `docs/DATABASE_SCHEMA.md` — updated source enum and track shapes from Spotify/YouTube to Deezer
+- `docs/DECISIONS.md` — added Wax design system entry
+- `docs/PLANCHECKLIST.md` — Session 2C marked complete; tsconfig item ticked in 4A
+
+## Issues Spotted
+
+1. **IDs regenerated on every GET /api/tracks**: `tracks.ts` calls `uuidv4()` at read-time, so local track IDs differ between page loads and playlist storage. Playlist "active" detection falls back to filename comparison, which works but means stored playlist item IDs are stale after refresh.
+
+2. **handleDeleteTrack is async but errors are swallowed**: If the DELETE fetch fails, tracks state is still updated and playback stopped. Should surface a failure state.
+
+3. **No confirmation on delete**: Uploaded tracks are deleted immediately on button click with no undo. Easy to delete accidentally.
+
+## Suggestions
+
+1. **Stabilise track IDs**: Generate IDs from filename hash or store them in a lightweight JSON manifest so they are stable across restarts. This will be needed anyway when the DB lands in Phase 3.
+
+2. **Add error feedback on delete failure**: Catch the fetch error and show a transient error message rather than silently failing.
+
+3. **Debounce filter input**: The filter runs on every keystroke via useMemo — acceptable now but worth debouncing if the track list grows large.
