@@ -4,7 +4,7 @@
 
 A lightweight, Vercel-optimized music player web app built with React/TypeScript, Tailwind CSS, Node.js/Express, and SQLite. Built incrementally across ~5-hour sessions.
 
-**Deployment**: Vercel (serverless-compatible) **Live URL**: https://vibe-player.vercel.app
+**Deployment**: Vercel (serverless-compatible) **Live URL**: [https://vibe-player.vercel.app](https://vibe-player.vercel.app)
 
 ---
 
@@ -73,6 +73,7 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 ├── .gitignore
 └── vercel.json
 
+
 ```
 
 ---
@@ -126,13 +127,14 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 3. Commit
 4. Run /commitReview
 
+
 ```
 
 ---
 
 ## Phase 1 — Beta Playback (No Database) ✅ COMPLETE
 
-**Deployed**: https://vibe-player.vercel.app
+**Deployed**: [https://vibe-player.vercel.app](https://vibe-player.vercel.app)
 
 Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, playback, seek, volume control, and sample tracks working end-to-end.
 
@@ -146,70 +148,77 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 
 ---
 
-### Session 2A — Deezer Search (REPLACES Spotify attempt) 🔄
+### ~~Session 2A (Spotify attempt) — SUPERSEDED~~
 
-**Context**: Spotify code was built in a prior attempt but is blocked because the Web API requires a Premium subscription. All Spotify-related files must be removed and replaced with a Deezer implementation. No `.env` variables are needed for Deezer.
-
-**Deliverable**: Working search bar returning Deezer track metadata, with 30-second previews playable via the existing Howler.js player.
-
-Steps:
-
-1. Add decision entry to `docs/DECISIONS.md` — Deezer chosen over Spotify, reason: no auth required, 30-second preview MP3 URLs available for free
-2. Remove all Spotify-specific code:
-  - `server/src/routes/search.ts` — rewrite for Deezer
-  - `server/src/__tests__/search.test.ts` — rewrite tests
-  - `client/src/components/SearchBar.tsx` — keep, rewire to new endpoint
-  - `client/src/components/SearchResults.tsx` — keep, update types
-  - `client/src/__tests__/SearchBar.test.tsx` — update mocks
-  - Remove `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` from `.env` and any token-caching logic in the server
-3. Implement Deezer search endpoint:
-  - `GET /api/search?q=` proxies `https://api.deezer.com/search?q=`
-  - Returns normalized array: `{ id, title, artist, albumArt, previewUrl, durationMs }`
-  - Returns 400 if `q` is missing or empty
-  - No credentials needed — direct fetch, no token logic
-4. Wire `previewUrl` to the existing `usePlayer` hook via a synthetic `Track` object — same pattern as local tracks, just a different URL source
-5. Update `client/src/types.ts` — replace any Spotify-specific types with source-agnostic `Track` shape (source: `'local' | 'deezer'`)
-6. Rewrite tests:
-  - `GET /api/search` returns 400 with no query
-  - `GET /api/search?q=test` returns correct shape (mock `fetch` to Deezer)
-  - `SearchBar` renders results from mock data
-7. Run full test suite — all must pass
-8. Manual smoke test: search "radiohead", click a result, audio plays
-9. Update `docs/PLANCHECKLIST.md`
-10. Commit, run `/commitReview`
-
-**Checkpoint**: Search "radiohead" → results appear → click a track → 30-second preview plays through the existing player.
-
-**Deezer API reference**:
-
-```
-Search:  GET https://api.deezer.com/search?q=radiohead
-Track:   GET https://api.deezer.com/track/3135556
-
-```
-
-Key response fields: `id`, `title`, `artist.name`, `album.cover_medium`, `preview` (direct MP3 URL), `duration` (seconds).
+> Spotify Web API requires the app owner to have an active Premium subscription to use the search endpoint. All Spotify code was removed and replaced with Deezer.
 
 ---
 
-### Session 2B — Playlist Management (Frontend Only)
+### Session 2A — Deezer Search ✅ COMPLETE
 
-**Deliverable**: Reorderable playlist that persists across page refreshes.
+> Deezer public API, no credentials. Search + 30-second preview URLs. All Spotify code removed.
 
-Steps:
+---
 
-1. Create `PlaylistContext` in `/client/src/contexts/`
-2. Add "Add to playlist" button on each track (local + Deezer results)
-3. Build `PlaylistPanel` component with drag-and-drop (`@dnd-kit/core`)
-4. Persist playlist to `localStorage` — temporary, replaced in Phase 3
-5. Version the localStorage key (`playlist:v1`) and wrap in try/catch per the `client-localstorage-schema` rule in the Vercel best-practices skill
-6. Write Vitest tests for playlist context: add, remove, reorder
-7. Update `docs/PLANCHECKLIST.md`
-8. Commit, run `/commitReview` — opencode creates PR from `phase-2` branch into `main`
+### Session 2B — Playlist Management (Frontend Only) ✅ COMPLETE
 
-**Checkpoint**: Build a playlist from local + Deezer tracks, reorder it, refresh — it persists.
+> Drag-and-drop reorderable playlist stored in localStorage. Add-to-playlist on local tracks and Deezer results.
 
-> Note: Session 2B was previously "YouTube Audio Streaming". That feature is moved to the Phase 4 backlog — it has TOS complexity that is not worth blocking Phase 3 over. Playlist management is more valuable to implement now.
+---
+
+### Session 2C — Bug Fixes + Core UX Features ⬜ NEXT
+
+**Scope**: Two bug fixes, delete uploaded tracks, sort/filter the track list. Frontend-only except the one delete endpoint. No new dependencies.
+
+**Bug 1 — Deezer previews not playing**
+
+- Root cause: `usePlayer` always builds `src` as `/api/tracks/${filename}/stream`. Deezer synthetic tracks set `filename` to the preview URL, routing it through Express where it fails.
+- Fix: Add `externalUrl?: string` to `Track` in `shared/types.ts`. Set it in `handleSearchSelect` in `App.tsx`. Have `usePlayer.play()` use it as the Howler `src` directly when present.
+
+**Bug 2 — Playlist items not playable**
+
+- Root cause: `PlaylistPanel` has no play callback; rows are not clickable.
+- Fix: Add `onPlay: (item: PlaylistItem) => void` prop to `PlaylistPanel`. Wire it in `App.tsx`. Make each row's track-name area clickable. Highlight the currently-playing item.
+
+**Delete uploaded tracks**
+
+- Add `DELETE /api/tracks/:filename` endpoint — deletes file from disk (`uploads/` only). Returns 403 for sample files, 404 if not found.
+- Add a delete icon button on upload-source rows in `TrackList` (hidden for samples). On confirm, call endpoint and remove from local state. If the deleted track is currently playing, stop playback.
+- Supertest test: delete succeeds for uploaded file; returns 403 for sample.
+- Vitest test: delete button renders only on upload-source rows.
+
+**Sort & Filter for Track List**
+
+- Filter input above `TrackList`: real-time case-insensitive match on `originalName`.
+- Sort dropdown: A–Z, Z–A, Size ↑, Size ↓, Source (samples first).
+- Client-side only, no new endpoints. State in `App.tsx`.
+- Vitest test: filter narrows correctly; sort orders correctly.
+
+**Steps**
+
+1. `shared/types.ts` — add `externalUrl?: string`
+2. `usePlayer.ts` — use `externalUrl` as Howler src when present
+3. `App.tsx` — set `externalUrl` on Deezer synthetic track; wire `onPlay` to `PlaylistPanel`; add filter/sort state above `TrackList`
+4. `PlaylistPanel.tsx` — add `onPlay` prop, clickable rows, active item highlight
+5. `server/src/routes/tracks.ts` — add `DELETE /:filename` route
+6. `server/src/__tests__/api.test.ts` — add delete tests
+7. `TrackList.tsx` — add delete button for upload rows; call stop if deleting active track
+8. Filter/sort bar (inline in App or small `TrackFilter.tsx`) + Vitest test
+9. `npm test` — all must pass
+10. Manual smoke test: Deezer preview plays · playlist item plays · delete works · filter/sort works
+11. Update `docs/PLANCHECKLIST.md`, commit, run `/commitReview`
+
+**Checkpoint**: Deezer previews play. Playlist items play. Uploaded tracks deletable. Track list filterable and sortable.
+
+---
+
+### Session 2D — UI Polish ⬜ OPTIONAL
+
+> Only if 2C is fully clean. One focused pass, no new features.
+
+- Distinct play-preview vs add-to-playlist buttons in `SearchResults` so intent is unambiguous
+- Now-playing indicator in `PlaylistPanel` (animated dot or color accent on active row) if not already done in 2C
+- Update `docs/PLANCHECKLIST.md`, commit, run `/commitReview`
 
 ---
 
@@ -230,16 +239,18 @@ Steps:
 1. Update `docs/DATABASE_SCHEMA.md`: change source enum from `'local' | 'spotify' | 'youtube'` to `'local' | 'deezer'` and update the Deezer track JSON shape accordingly
 2. Install `better-sqlite3`
 3. Create `/server/db/migrations/`:
-  - `001_create_users.sql`
-  - `002_create_playlists.sql`
-  - `003_create_playlist_tracks.sql`
-  - Write these exactly from the updated `docs/DATABASE_SCHEMA.md`
-4. Write `/server/db/migrate.ts` — simple runner, executes migrations in order
-5. Write `/server/db/index.ts` — typed query helpers for all tables
-6. Write Jest tests for all DB operations using `:memory:` database
-7. Run `npm run test:server` — all must pass
-8. Update `docs/PLANCHECKLIST.md`
-9. Commit, run `/commitReview`
+
+- `001_create_users.sql`
+- `002_create_playlists.sql`
+- `003_create_playlist_tracks.sql`
+- Write these exactly from the updated `docs/DATABASE_SCHEMA.md`
+
+1. Write `/server/db/migrate.ts` — simple runner, executes migrations in order
+2. Write `/server/db/index.ts` — typed query helpers for all tables
+3. Write Jest tests for all DB operations using `:memory:` database
+4. Run `npm run test:server` — all must pass
+5. Update `docs/PLANCHECKLIST.md`
+6. Commit, run `/commitReview`
 
 **Checkpoint**: All DB tests pass with in-memory SQLite. No real `.db` file created.
 
@@ -253,18 +264,22 @@ Steps:
 
 1. Install `bcrypt` and `jsonwebtoken`
 2. Implement endpoints:
-  - `POST /api/auth/register` — validate input, hash password (cost 12), insert user, return JWT
-  - `POST /api/auth/login` — verify credentials, return JWT
-  - `GET /api/auth/me` — decode JWT from `httpOnly` cookie, return user
-3. Write `authMiddleware` — attaches user to request or returns 401
-4. Apply `authMiddleware` to all playlist endpoints
-5. Write Supertest tests:
-  - Register creates user, returns JWT
-  - Login with wrong password returns 401
-  - `GET /api/auth/me` with valid JWT returns user
-  - `GET /api/auth/me` with no JWT returns 401
-6. Update `docs/PLANCHECKLIST.md`
-7. Commit, run `/commitReview`
+
+- `POST /api/auth/register` — validate input, hash password (cost 12), insert user, return JWT
+- `POST /api/auth/login` — verify credentials, return JWT
+- `GET /api/auth/me` — decode JWT from `httpOnly` cookie, return user
+
+1. Write `authMiddleware` — attaches user to request or returns 401
+2. Apply `authMiddleware` to all playlist endpoints
+3. Write Supertest tests:
+
+- Register creates user, returns JWT
+- Login with wrong password returns 401
+- `GET /api/auth/me` with valid JWT returns user
+- `GET /api/auth/me` with no JWT returns 401
+
+1. Update `docs/PLANCHECKLIST.md`
+2. Commit, run `/commitReview`
 
 **Checkpoint**: `curl -X POST /api/auth/register` → get JWT → use on `/api/auth/me`.
 
@@ -283,10 +298,12 @@ Steps:
 5. Add `PUT /api/playlists/:id/tracks` for reorder operations
 6. Migrate playlist save/load from `localStorage` to the API
 7. Write Vitest tests for auth UI:
-  - Login form shows error on bad credentials
-  - Register form validates email format
-8. Update `docs/PLANCHECKLIST.md`
-9. Commit, run `/commitReview` — opencode creates PR from `phase-3` branch into `main`
+
+- Login form shows error on bad credentials
+- Register form validates email format
+
+1. Update `docs/PLANCHECKLIST.md`
+2. Commit, run `/commitReview` — opencode creates PR from `phase-3` branch into `main`
 
 **Checkpoint**: Register → log in → build playlist → refresh → playlist persists.
 
@@ -370,6 +387,7 @@ npm run test:client   # Vitest + React Testing Library
 
 # Deploy
 vercel --prod
+
 
 ```
 

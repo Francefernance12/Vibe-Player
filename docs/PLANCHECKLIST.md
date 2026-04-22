@@ -198,20 +198,27 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ---
 
-### Session 3C — Auth UI + Playlist Persistence
+### Session 3C — Auth UI + Playlist Persistence ✅ COMPLETE
 
-- ⬜ `LoginPage` component built
-- ⬜ `RegisterPage` component built
-- ⬜ JWT stored in `httpOnly` cookie
-- ⬜ `AuthContext` created (current user, login, logout)
-- ⬜ `GET /api/playlists` endpoint (auth-protected)
-- ⬜ `POST /api/playlists` endpoint (auth-protected)
-- ⬜ `PUT /api/playlists/:id/tracks` endpoint (reorder)
-- ⬜ Playlist save/load migrated from `localStorage` to API
-- ⬜ Test: login form shows error on bad credentials
-- ⬜ Test: register form validates email format
-- ⬜ All tests pass
-- ⬜ **Checkpoint**: Register → build playlist → refresh → playlist still there
+- ✅ `LoginPage` component built (email + password form, error display)
+- ✅ `RegisterPage` component built (client-side validation: email format, password length)
+- ✅ JWT stored in `httpOnly` cookie (set by backend, read via cookie-parser)
+- ✅ `AuthContext` created — `user`, `loading`, `login`, `register`, `logout`
+- ✅ `AuthGate` in App.tsx — shows login/register when not logged in, player when logged in
+- ✅ `GET /api/playlists` endpoint (auth-protected) — returns playlists with serialised items
+- ✅ `POST /api/playlists` endpoint (auth-protected) — creates playlist, accepts client-provided id
+- ✅ `DELETE /api/playlists/:id` endpoint (auth-protected, ownership check)
+- ✅ `PUT /api/playlists/:id/tracks` endpoint (full sync / reorder, ownership check)
+- ✅ Register auto-creates Favorites playlist in DB
+- ✅ `PlaylistContext` — loads from API when logged in; falls back to localStorage when not
+- ✅ `PlaylistContext` — syncs to API on every mutation (add, remove, reorder, create) when logged in
+- ✅ `defaultPlaylistId` exposed from context (derived from Favorites playlist name)
+- ✅ Test: login form shows error on bad credentials
+- ✅ Test: register form validates email format (client-side, no network call)
+- ✅ Test: register form validates password length
+- ✅ 8 new playlist endpoint tests, all pass
+- ✅ All tests pass: 42 server + 36 client = 78 total
+- ✅ **Checkpoint**: Register → build playlist → refresh → playlist still there
 
 ---
 

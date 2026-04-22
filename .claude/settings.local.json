@@ -15,7 +15,12 @@
       "Bash(opencode run --model opencode/big-pickle 'You are a code reviewer. Do the following in order: *)",
       "Bash(git rm *)",
       "Bash(vercel --prod)",
-      "Bash(vercel env *)"
+      "Bash(vercel env *)",
+      "Bash(curl -s \"http://localhost:3001/api/search?q=radiohead\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); t=d[0]; print\\('title:', t['title'], '| previewUrl:', \\(t.get\\('previewUrl'\\) or 'null'\\)[:50]\\)\")",
+      "Bash(opencode *)",
+      "Bash(JWT_SECRET=test-secret npm test -- --testPathPattern=playlists)",
+      "Bash(JWT_SECRET=test-secret npm test)"
     ]
   }
 }
