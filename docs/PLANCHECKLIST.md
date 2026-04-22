@@ -176,20 +176,25 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ---
 
-### Session 3B — Auth Endpoints
+### Session 3B — Auth Endpoints ✅ COMPLETE
 
-- ⬜ `bcrypt` installed for password hashing
-- ⬜ `jsonwebtoken` installed for JWT sessions
-- ⬜ `POST /api/auth/register` endpoint
-- ⬜ `POST /api/auth/login` endpoint
-- ⬜ `GET /api/auth/me` endpoint
-- ⬜ `authMiddleware` implemented and applied to protected routes
-- ⬜ Test: register creates user, returns JWT
-- ⬜ Test: login with wrong password returns 401
-- ⬜ Test: `/api/auth/me` with valid JWT returns user
-- ⬜ Test: `/api/auth/me` with no JWT returns 401
-- ⬜ All tests pass
-- ⬜ **Checkpoint**: Register → get JWT → use on `/api/auth/me` via curl
+- ✅ `bcrypt` + `cookie-parser` installed for password hashing and cookie parsing
+- ✅ `jsonwebtoken` installed for JWT sessions
+- ✅ `POST /api/auth/register` endpoint — validates email/password, creates user, sets httpOnly cookie
+- ✅ `POST /api/auth/login` endpoint — verifies credentials, sets httpOnly cookie
+- ✅ `POST /api/auth/logout` endpoint — clears token cookie
+- ✅ `GET /api/auth/me` endpoint — returns current user from JWT
+- ✅ `authMiddleware` implemented in `server/src/middleware/auth.ts`
+- ✅ Test: register creates user, returns 201 with id + email
+- ✅ Test: register returns 409 if email already registered
+- ✅ Test: register returns 400 for invalid email format
+- ✅ Test: register returns 400 for short password
+- ✅ Test: login with wrong password returns 401
+- ✅ Test: login with unknown email returns 401
+- ✅ Test: `/api/auth/me` with valid JWT cookie returns user
+- ✅ Test: `/api/auth/me` with no JWT returns 401
+- ✅ All tests pass: 34 server tests (22 prior + 9 auth + 3 search)
+- ✅ **Checkpoint**: Register → get JWT cookie → use on `/api/auth/me`
 
 ---
 

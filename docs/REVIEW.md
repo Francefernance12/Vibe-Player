@@ -297,3 +297,48 @@
 2. **Extract `TrackSource` union type to `shared/types.ts`**: Currently `'local' | 'deezer'` is duplicated between `db/index.ts` and `types.ts`. A shared type would prevent drift.
 
 3. **Add `getPlaylistTrackById` helper**: Session 3B will need to verify track ownership before delete/reorder — a missing helper today.
+
+---
+
+## Date: 2026-04-22
+
+## Branch Name: session-3b
+
+## What Changed
+
+9 files changed, 450 insertions(+), 19 deletions(-)
+
+### Files Modified:
+- `server/package.json` — added `bcrypt`, `jsonwebtoken`, `cookie-parser` + dev types
+- `server/package-lock.json` — dependency lockfile
+- `server/src/app.ts` — added `cookie-parser` middleware and auth router mount
+- `server/src/middleware/auth.ts` — new: `authMiddleware`, `getJwtSecret()`, `AuthPayload` type
+- `server/src/routes/auth.ts` — new: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- `server/src/__tests__/auth.test.ts` — new: 9 auth endpoint tests
+- `docs/DECISIONS.md` — auth decisions documented
+- `docs/PLANCHECKLIST.md` — Session 3B marked complete
+- `.env_example` — added `JWT_SECRET` placeholder
+
+### Summary:
+- Implemented full auth flow: register, login, logout, and `/me` endpoints
+- Passwords hashed with bcrypt (cost factor 12)
+- Sessions issued as JWTs stored in `httpOnly; SameSite=lax` cookies
+- `authMiddleware` reads and verifies JWT from cookie, attaches `req.user`
+- Auth tests use `jest.mock` to replace `getDb()` with `createMemoryDb()` — no real DB file touched
+- All 34 server tests pass (22 prior + 9 auth + 3 search)
+
+## Issues Spotted
+
+1. **`getDb()` path resolution**: The path `path.join(__dirname, '..', '..', 'server', 'db', 'music.db')` works when `__dirname` is `server/src/` (ts-node), but after `tsc` compilation to `dist/`, `__dirname` becomes `server/dist/src/` — the relative path would resolve incorrectly. Worth adding a test or explicit path assertion before Vercel deployment.
+
+2. **No rate limiting on auth endpoints**: `/api/auth/register` and `/api/auth/login` have no rate limiting. In production, brute-force and registration spam are easy without it. Consider `express-rate-limit` on these routes before 3C.
+
+3. **No logout invalidation**: The logout route clears the cookie client-side, but the JWT remains valid until expiry (7 days). A short-lived token (e.g., 1 hour) + refresh token would mitigate this, but adds complexity. For now, the 7-day window is an accepted risk at this project scale.
+
+## Suggestions
+
+1. **Add `express-rate-limit`**: Apply to `/api/auth/register` and `/api/auth/login` before shipping to production. Simple, low-overhead mitigation.
+
+2. **Short-circuit on missing `JWT_SECRET`**: `getJwtSecret()` throws at call time. Consider calling it at server startup (in `index.ts`) so a missing secret fails fast rather than at first auth request.
+
+3. **Consider `httpOnly` + `Secure` flag on Vercel**: The cookie sets `secure: process.env.NODE_ENV === 'production'` — verify `NODE_ENV` is set correctly in Vercel environment variables so cookies are secure in production.
