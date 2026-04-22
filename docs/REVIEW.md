@@ -520,3 +520,48 @@
 
 2. **Keep Lighthouse scores above 90**: Scores are good but SEO at 82 could be improved for production.
 
+---
+
+## Date: 2026-04-22
+
+## Branch Name: session-4b (HEAD at 748b0cd)
+
+## What Changed
+
+6 files changed, 100 insertions(+), 14 deletions(-)
+
+### Files Modified:
+- `client/package-lock.json` — added `react-swipeable@7.0.2` dependency
+- `client/package.json` — added `react-swipeable@7.0.2`
+- `client/src/App.tsx` — added `MobilePlayerBar` component with swipe gestures; main container adds `pb-32 sm:pb-10` for bottom bar clearance
+- `client/src/components/PlayerControls.tsx` — enlarged prev/next touch targets: `p-3 sm:p-2` (44px on mobile)
+- `client/src/components/ProgressBar.tsx` — added `onTouchEnd` handler for mobile seeking
+- `docs/PLANCHECKLIST.md` — Session 4B marked complete
+
+### Summary:
+- Implemented fixed bottom-sheet player for mobile with `sm:hidden` class
+- Inline desktop player hidden on mobile with `hidden sm:flex`
+- Added swipe left/right on bottom bar to trigger next/prev track using `react-swipeable`
+- Enlarged prev/next button touch targets from `p-2` to `p-3` on mobile (~44px)
+- Added touch support to `ProgressBar` for mobile seeking via `onTouchEnd`
+- All mobile-first responsive design uses Tailwind `sm:` breakpoint
+- All 36 client tests pass after changes
+
+## Issues Spotted
+
+1. **Swipe prevention on vertical scroll**: The swipe handler sets `preventScrollOnSwipe: true`, which could interfere with vertical scrolling on the bottom bar if the user starts a vertical scroll gesture that begins on the bar. Testing on real devices recommended.
+
+2. **No haptic feedback on mobile**: Swipe gestures and touch interactions have no haptic feedback (vibration) that would enhance the mobile UX. Consider adding `navigator.vibrate(50)` on successful swipe.
+
+3. **Touch target size for progress bar**: The progress bar has `py-2 -my-2` to enlarge the clickable area, but on mobile this gives an effective height of only ~24px. Apple HIG recommends minimum 44px touch targets — consider increasing to `py-3 -my-3` on mobile.
+
+## Suggestions
+
+1. **Test swipe on real devices**: Verify `preventScrollOnSwipe: true` doesn't break vertical scrolling on iOS Safari and Android Chrome. May need to adjust to `preventScrollOnSwipe: 'touch'` or remove entirely.
+
+2. **Add visual feedback on swipe**: Consider adding a subtle transform animation or visual indicator when the user swipes left/right to show that the gesture was recognized before the track changes.
+
+3. **Increase progress bar touch target**: Change `ProgressBar` to use `py-3 -my-3 sm:py-2 sm:-my-2` to meet minimum 44px touch target guideline on mobile while keeping desktop compact.
+
+4. **Test with long track names**: The bottom bar uses `truncate` on track name. Verify that very long track names don't cause layout shift or overflow on small screens (320px).
+
