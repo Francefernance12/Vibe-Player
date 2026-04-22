@@ -233,7 +233,11 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 - ✅ `rollup-plugin-visualizer` installed; run `ANALYZE=true npm run build --prefix client` for treemap
 - ✅ `SearchBar` exposes `onSearching` prop; skeleton shows immediately on keystroke (before 400ms debounce fires)
 - ✅ All 36 client tests pass
-- ⬜ **Checkpoint**: Lighthouse score > 80 on mobile (pending manual audit on live URL)
+- ✅ **Checkpoint**: Lighthouse score > 80 on mobile — results (2026-04-22, mobile, vibe-player.vercel.app):
+  - Performance: 92
+  - Accessibility: 92
+  - Best Practices: 96
+  - SEO: 82
 
 ---
 
