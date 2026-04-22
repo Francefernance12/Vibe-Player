@@ -394,3 +394,35 @@
 3. **Add loading state in `PlaylistProvider`**: Expose an `isLoading` boolean from context and show a spinner in `PlaylistPanel` while the first fetch completes.
 
 4. **Retry or rollback on `createPlaylist` failure**: Catch the API error and either remove the locally-created playlist or show a toast error so the user knows the playlist wasn't saved.
+
+---
+
+## Date: 2026-04-22
+
+## Branch Name: session-3c (production auth fix)
+
+## What Changed
+
+2 files changed, 59 insertions(+), 49 deletions(-)
+
+### Files Modified:
+- `server/src/routes/auth.ts` — wrapped `/register` and `/login` async handlers in try/catch calling `next(err)`; added `NextFunction` to import
+- `server/src/app.ts` — added Express 4-arg error-handling middleware (logs and returns 500 JSON)
+
+### Summary:
+- Root cause: `JWT_SECRET` env var was missing from Vercel dashboard. `getJwtSecret()` threw synchronously inside an async Express 4 handler. Express 4 does not auto-propagate rejected Promises — the response was never sent and Vercel returned a 504 timeout.
+- Evidence of bug: user was created in DB (bcrypt + `createUser` ran before the throw), so "Email already registered" appeared on second attempt.
+- Fix: try/catch on both async handlers forwards errors to Express error pipeline; new error middleware returns `{ error: 'Internal server error' }` with status 500 instead of hanging indefinitely.
+- All 42 server tests pass after the change.
+
+## Issues Spotted
+
+1. **`deletePlaylistApi` was dead code (already fixed)**: The earlier commit on this branch removed an unused function that was causing TS6133 build failure on Vercel. Confirmed removed.
+
+2. **`foreign_keys = ON` only applied in `getDb()` (pre-existing)**: The pragma is set correctly in the DB helper but should be verified on Vercel's `/tmp` cold-start path.
+
+## Suggestions
+
+1. **Startup validation for `JWT_SECRET`**: The `api/index.ts` Vercel entry point never calls `getJwtSecret()` at startup. A startup check (e.g., call it once in `api/index.ts`) would surface a missing secret immediately on cold start rather than on the first auth request.
+
+2. **Return specific 500 message in dev**: The error middleware currently returns a generic message in all environments. In development, logging `err.stack` would speed up debugging.
