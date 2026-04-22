@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSwipeable } from 'react-swipeable'
 import { Track, SearchTrack } from './types'
 import { usePlayer } from './hooks/usePlayer'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
@@ -26,6 +27,52 @@ function makeSyntheticTrack(result: SearchTrack): Track {
     source: 'deezer',
     externalUrl: result.previewUrl ?? undefined,
   }
+}
+
+interface MobilePlayerBarProps {
+  nowPlayingName: string | null
+  isPlaying: boolean
+  hasTrack: boolean
+  onPlay: () => void
+  onPause: () => void
+  onNext: () => void
+  onPrev: () => void
+  getDuration: () => number
+  getSeek: () => number
+  onSeek: (ratio: number) => void
+}
+
+function MobilePlayerBar({ nowPlayingName, isPlaying, hasTrack, onPlay, onPause, onNext, onPrev, getDuration, getSeek, onSeek }: MobilePlayerBarProps) {
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => { if (hasTrack) onNext() },
+    onSwipedRight: () => { if (hasTrack) onPrev() },
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+  })
+
+  return (
+    <div
+      {...swipeHandlers}
+      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#111113] border-t border-[#1e1e21]"
+    >
+      <div className="px-4 pt-3">
+        <ProgressBar isPlaying={isPlaying} getDuration={getDuration} getSeek={getSeek} onSeek={onSeek} />
+      </div>
+      <div className="flex items-center justify-between px-4 py-2">
+        <p className="flex-1 text-sm font-medium text-zinc-100 truncate mr-4 min-w-0">
+          {nowPlayingName ?? <span className="text-zinc-600 font-normal">Select a track</span>}
+        </p>
+        <PlayerControls
+          isPlaying={isPlaying}
+          hasTrack={hasTrack}
+          onPlay={onPlay}
+          onPause={onPause}
+          onNext={onNext}
+          onPrev={onPrev}
+        />
+      </div>
+    </div>
+  )
 }
 
 function TrackListSkeleton() {
@@ -106,7 +153,19 @@ function Player() {
     : null
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col items-center justify-start py-10 px-4">
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col items-center justify-start py-10 px-4 pb-32 sm:pb-10">
+      <MobilePlayerBar
+        nowPlayingName={nowPlayingName}
+        isPlaying={player.isPlaying}
+        hasTrack={player.currentTrack !== null}
+        onPlay={player.resume}
+        onPause={player.pause}
+        onNext={player.next}
+        onPrev={player.prev}
+        getDuration={player.getDuration}
+        getSeek={player.getSeek}
+        onSeek={player.seek}
+      />
       <div className="w-full max-w-md flex flex-col gap-3">
 
         {/* Wordmark + user */}
@@ -174,8 +233,8 @@ function Player() {
           )}
         </div>
 
-        {/* Player */}
-        <div className="bg-[#111113] border border-[#1e1e21] rounded-2xl p-4 flex flex-col gap-3">
+        {/* Player — hidden on mobile (uses fixed bottom bar instead) */}
+        <div className="hidden sm:flex bg-[#111113] border border-[#1e1e21] rounded-2xl p-4 flex-col gap-3">
           <div className="min-h-[1.25rem]">
             {nowPlayingName ? (
               <p className="text-sm font-medium text-zinc-100 truncate">{nowPlayingName}</p>

@@ -241,13 +241,18 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ---
 
-### Session 4B — Mobile Responsiveness
+### Session 4B — Mobile Responsiveness ✅ COMPLETE
 
-- ⬜ All components audited at 375px viewport
-- ⬜ Tailwind breakpoints fixed for mobile
-- ⬜ Bottom-sheet player implemented for mobile
-- ⬜ Swipe gestures added (`react-swipeable`)
-- ⬜ **Checkpoint**: App is fully usable on a phone
+- ✅ All components audited at 375px viewport (single-column `max-w-md` layout — no horizontal overflow)
+- ✅ Tailwind breakpoints: `sm:` used throughout for mobile-first overrides
+- ✅ Fixed bottom-sheet player implemented for mobile (`sm:hidden` fixed bar with progress + controls)
+- ✅ Inline desktop player hidden on mobile (`hidden sm:flex`)
+- ✅ Main container adds `pb-32 sm:pb-10` to clear the fixed bottom bar
+- ✅ Swipe left/right on bottom bar → next/prev (`react-swipeable`)
+- ✅ Prev/next touch targets enlarged: `p-3 sm:p-2` (~44px on mobile)
+- ✅ `ProgressBar` touch support: `onTouchEnd` handler for mobile seeking
+- ✅ All 36 client tests pass
+- ✅ **Checkpoint**: App is fully usable on a phone
 
 ---
 

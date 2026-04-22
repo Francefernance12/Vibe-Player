@@ -18,7 +18,7 @@ export const PlayerControls = memo(function PlayerControls({
         onClick={onPrev}
         disabled={!hasTrack}
         aria-label="Previous"
-        className="p-2 text-zinc-500 hover:text-zinc-200 disabled:opacity-25 transition-colors"
+        className="p-3 sm:p-2 text-zinc-500 hover:text-zinc-200 disabled:opacity-25 transition-colors"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
           <path d="M5 5h2v10H5V5zm3 5 7-5v10L8 10z" />
@@ -46,7 +46,7 @@ export const PlayerControls = memo(function PlayerControls({
         onClick={onNext}
         disabled={!hasTrack}
         aria-label="Next"
-        className="p-2 text-zinc-500 hover:text-zinc-200 disabled:opacity-25 transition-colors"
+        className="p-3 sm:p-2 text-zinc-500 hover:text-zinc-200 disabled:opacity-25 transition-colors"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
           <path d="M13 5h2v10h-2V5zm-8 0l7 5-7 5V5z" />

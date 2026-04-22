@@ -54,12 +54,23 @@ export function ProgressBar({ isPlaying, getDuration, getSeek, onSeek }: Props) 
     onSeek(ratio)
   }, [onSeek])
 
+  const handleTouch = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const bar = barRef.current
+    if (!bar) return
+    const touch = e.changedTouches[0]
+    if (!touch) return
+    const rect = bar.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width))
+    onSeek(ratio)
+  }, [onSeek])
+
   return (
     <div className="flex items-center gap-3 w-full select-none">
       <span ref={elapsedRef} className="font-mono text-[11px] text-zinc-500 w-8 text-right">0:00</span>
       <div
         ref={barRef}
         onClick={handleClick}
+        onTouchEnd={handleTouch}
         className="flex-1 h-1 bg-[#2a2a2d] rounded-full cursor-pointer relative group py-2 -my-2"
       >
         <div className="absolute inset-y-0 my-auto h-1 w-full rounded-full">
