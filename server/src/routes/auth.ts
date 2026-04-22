@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import { v4 as uuidv4 } from 'uuid'
-import { getDb, createUser, getUserByEmail, getUserById } from '../../db/index'
+import { getDb, createUser, getUserByEmail, getUserById, createPlaylist } from '../../db/index'
 import { authMiddleware, getJwtSecret } from '../middleware/auth'
 
 const router = Router()
@@ -54,6 +54,8 @@ router.post('/register', authRateLimit, async (req: Request, res: Response) => {
   }
   const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
   const user = createUser(db, { id: uuidv4(), email: normalised, password_hash })
+  // Every new user gets a default Favorites playlist
+  createPlaylist(db, { id: uuidv4(), user_id: user.id, name: 'Favorites' })
   const token = issueToken(user.id, user.email)
   setTokenCookie(res, token)
   res.status(201).json({ id: user.id, email: user.email })

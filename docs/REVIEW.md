@@ -342,3 +342,55 @@
 2. **Short-circuit on missing `JWT_SECRET`**: `getJwtSecret()` throws at call time. Consider calling it at server startup (in `index.ts`) so a missing secret fails fast rather than at first auth request.
 
 3. **Consider `httpOnly` + `Secure` flag on Vercel**: The cookie sets `secure: process.env.NODE_ENV === 'production'` — verify `NODE_ENV` is set correctly in Vercel environment variables so cookies are secure in production.
+
+---
+
+## Date: 2026-04-22
+
+## Branch Name: session-3c
+
+## What Changed
+
+15 files changed, 900 insertions(+), 229 deletions(-)
+
+### Files Modified:
+- `client/src/App.tsx` — split into `AuthGate` + `Player` components; `AuthProvider` wraps the tree; shows `LoginPage`/`RegisterPage` when not logged in
+- `client/src/contexts/AuthContext.tsx` — new: `AuthProvider`, `useAuth()`, `login`, `register`, `logout`, session check on mount
+- `client/src/contexts/PlaylistContext.tsx` — rewritten: loads from API when logged in; syncs on every mutation; falls back to localStorage when not
+- `client/src/components/LoginPage.tsx` — new: email/password form with error display
+- `client/src/components/RegisterPage.tsx` — new: form with client-side validation (email format, password length ≥ 8)
+- `client/src/__tests__/AuthForms.test.tsx` — new: 6 tests (login error, register validation, nav links)
+- `client/src/__tests__/PlaylistContext.test.tsx` — updated: wraps with `AuthProvider`, fetch mocked as 401
+- `client/src/__tests__/TrackList.test.tsx` — updated: wraps with `AuthProvider`
+- `server/src/routes/playlists.ts` — new: `GET`, `POST`, `DELETE /api/playlists`, `PUT /api/playlists/:id/tracks` (all auth-protected, ownership-checked)
+- `server/src/routes/auth.ts` — register now auto-creates Favorites playlist in DB
+- `server/src/app.ts` — wired `playlistsRouter`
+- `server/src/__tests__/playlists.test.ts` — new: 8 tests covering CRUD + track sync
+- `docs/PLANCHECKLIST.md` — Session 3C marked complete
+
+### Summary:
+- App is now fully gated behind auth (register/login required)
+- `PlaylistContext` syncs to API on every mutation when user is logged in; uses localStorage when logged out
+- `PUT /api/playlists/:id/tracks` is a full-replace sync — client sends complete current state
+- Register auto-creates a Favorites playlist in the DB so every user starts with one
+- All tests pass: 42 server + 36 client = 78 total
+
+## Issues Spotted
+
+1. **`PlaylistContext` syncs on every keystroke of reorder**: Each drag-and-drop position change triggers a `PUT /api/playlists/:id/tracks` with the full track list. If the user reorders quickly, many requests fire in sequence. No debounce or request cancellation.
+
+2. **`defaultPlaylistId` finds Favorites by name**: `playlists.find(p => p.name === 'Favorites')?.id` is fragile — if a user renames their Favorites playlist, `addDeezer` will silently fall back to `LOCAL_FAVORITES_ID` (`'favorites'`) which won't match any server playlist.
+
+3. **No loading state during playlist fetch**: `PlaylistProvider` fetches playlists from API on login but shows whatever was in localStorage in the meantime (or the default empty Favorites). There's no loading indicator, so the UI may briefly show stale data.
+
+4. **`createPlaylist` fire-and-forget on API error**: If `POST /api/playlists` fails, the playlist exists in local state but not in the DB. On next page load, it disappears. No error surfaced to the user.
+
+## Suggestions
+
+1. **Debounce `PUT /api/playlists/:id/tracks`**: Add a 500ms debounce on the sync call for reorder operations to avoid flooding the server during fast drag-and-drop.
+
+2. **Store Favorites ID stably**: Instead of finding by name, store the Favorites playlist ID in a user preference or in a dedicated field. Alternatively, mark the auto-created playlist with a `is_default` flag in the DB.
+
+3. **Add loading state in `PlaylistProvider`**: Expose an `isLoading` boolean from context and show a spinner in `PlaylistPanel` while the first fetch completes.
+
+4. **Retry or rollback on `createPlaylist` failure**: Catch the API error and either remove the locally-created playlist or show a toast error so the user knows the playlist wasn't saved.

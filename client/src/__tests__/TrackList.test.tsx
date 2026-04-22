@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { TrackList } from '../components/TrackList'
+import { AuthProvider } from '../contexts/AuthContext'
 import { PlaylistProvider } from '../contexts/PlaylistContext'
 import { Track } from '../types'
+
+beforeEach(() => {
+  global.fetch = vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) } as unknown as Response)
+})
 
 const TRACKS: Track[] = [
   { id: '1', filename: 'a.mp3', originalName: 'Alpha.mp3', mimeType: 'audio/mpeg', size: 1024, source: 'sample' },
@@ -11,7 +16,7 @@ const TRACKS: Track[] = [
 ]
 
 function wrap(ui: React.ReactElement) {
-  return render(<PlaylistProvider>{ui}</PlaylistProvider>)
+  return render(<AuthProvider><PlaylistProvider>{ui}</PlaylistProvider></AuthProvider>)
 }
 
 test('renders the correct number of items from mock data', () => {
