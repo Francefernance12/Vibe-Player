@@ -114,9 +114,8 @@ Parse with `JSON.parse()` server-side when reading.
   "title": "Track Name",
   "artist": "Artist Name",
   "albumArt": "https://...",
-  "previewUrl": "https://...",
-  "durationMs": 30000,
-  "source": "deezer"
+  "previewUrl": "https://cdn-preview.deezer.com/...",
+  "durationMs": 30000
 }
 ```
 
