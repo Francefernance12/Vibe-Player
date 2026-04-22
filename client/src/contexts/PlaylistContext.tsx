@@ -5,68 +5,110 @@ export type PlaylistItem =
   | { kind: 'local'; track: Track }
   | { kind: 'deezer'; track: SearchTrack }
 
-interface PlaylistContextValue {
+export interface Playlist {
+  id: string
+  name: string
   items: PlaylistItem[]
-  addLocal: (track: Track) => void
+}
+
+interface PlaylistContextValue {
+  playlists: Playlist[]
+  createPlaylist: (name: string) => string
+  addLocal: (track: Track, playlistId: string) => void
   addDeezer: (track: SearchTrack) => void
-  remove: (id: string) => void
-  reorder: (fromIndex: number, toIndex: number) => void
+  removeFromPlaylist: (trackId: string, playlistId: string) => void
+  reorderPlaylist: (playlistId: string, fromIndex: number, toIndex: number) => void
+  isInPlaylist: (trackId: string, playlistId: string) => boolean
+}
+
+export const DEFAULT_PLAYLIST_ID = 'favorites'
+const STORAGE_KEY = 'playlists:v2'
+
+function itemId(item: PlaylistItem): string {
+  return item.track.id
+}
+
+function defaultPlaylists(): Playlist[] {
+  return [{ id: DEFAULT_PLAYLIST_ID, name: 'Favorites', items: [] }]
+}
+
+function loadFromStorage(): Playlist[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return defaultPlaylists()
+    return JSON.parse(raw) as Playlist[]
+  } catch {
+    return defaultPlaylists()
+  }
+}
+
+function saveToStorage(playlists: Playlist[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(playlists))
+  } catch { /* quota exceeded */ }
 }
 
 const PlaylistContext = createContext<PlaylistContextValue | null>(null)
 
-const STORAGE_KEY = 'playlist:v1'
-
-function loadFromStorage(): PlaylistItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    return JSON.parse(raw) as PlaylistItem[]
-  } catch {
-    return []
-  }
-}
-
-function saveToStorage(items: PlaylistItem[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-  } catch {
-    // storage quota exceeded — fail silently
-  }
-}
-
-function itemId(item: PlaylistItem) {
-  return item.kind === 'local' ? item.track.id : item.track.id
-}
-
 export function PlaylistProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<PlaylistItem[]>(loadFromStorage)
+  const [playlists, setPlaylists] = useState<Playlist[]>(loadFromStorage)
 
-  useEffect(() => { saveToStorage(items) }, [items])
+  useEffect(() => { saveToStorage(playlists) }, [playlists])
 
-  const addLocal = useCallback((track: Track) => {
-    setItems(prev => prev.some(i => itemId(i) === track.id) ? prev : [...prev, { kind: 'local', track }])
+  const createPlaylist = useCallback((name: string): string => {
+    const id = crypto.randomUUID()
+    setPlaylists(prev => [...prev, { id, name: name.trim() || 'Untitled', items: [] }])
+    return id
+  }, [])
+
+  const addLocal = useCallback((track: Track, playlistId: string) => {
+    setPlaylists(prev => prev.map(p =>
+      p.id !== playlistId ? p
+      : p.items.some(i => itemId(i) === track.id) ? p
+      : { ...p, items: [...p.items, { kind: 'local' as const, track }] }
+    ))
   }, [])
 
   const addDeezer = useCallback((track: SearchTrack) => {
-    setItems(prev => prev.some(i => itemId(i) === track.id) ? prev : [...prev, { kind: 'deezer', track }])
+    setPlaylists(prev => prev.map(p =>
+      p.id !== DEFAULT_PLAYLIST_ID ? p
+      : p.items.some(i => itemId(i) === track.id) ? p
+      : { ...p, items: [...p.items, { kind: 'deezer' as const, track }] }
+    ))
   }, [])
 
-  const remove = useCallback((id: string) => {
-    setItems(prev => prev.filter(i => itemId(i) !== id))
+  const removeFromPlaylist = useCallback((trackId: string, playlistId: string) => {
+    setPlaylists(prev => prev.map(p =>
+      p.id !== playlistId ? p
+      : { ...p, items: p.items.filter(i => itemId(i) !== trackId) }
+    ))
   }, [])
 
-  const reorder = useCallback((fromIndex: number, toIndex: number) => {
-    setItems(prev => {
-      const next = [...prev]
+  const reorderPlaylist = useCallback((playlistId: string, fromIndex: number, toIndex: number) => {
+    setPlaylists(prev => prev.map(p => {
+      if (p.id !== playlistId) return p
+      const next = [...p.items]
       const [moved] = next.splice(fromIndex, 1)
       next.splice(toIndex, 0, moved)
-      return next
-    })
+      return { ...p, items: next }
+    }))
   }, [])
 
+  const isInPlaylist = useCallback((trackId: string, playlistId: string): boolean => {
+    return playlists.find(p => p.id === playlistId)
+      ?.items.some(i => itemId(i) === trackId) ?? false
+  }, [playlists])
+
   return (
-    <PlaylistContext.Provider value={{ items, addLocal, addDeezer, remove, reorder }}>
+    <PlaylistContext.Provider value={{
+      playlists,
+      createPlaylist,
+      addLocal,
+      addDeezer,
+      removeFromPlaylist,
+      reorderPlaylist,
+      isInPlaylist,
+    }}>
       {children}
     </PlaylistContext.Provider>
   )

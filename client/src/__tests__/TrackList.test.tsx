@@ -16,7 +16,7 @@ function wrap(ui: React.ReactElement) {
 
 test('renders the correct number of items from mock data', () => {
   wrap(<TrackList tracks={TRACKS} currentTrack={null} onSelect={() => {}} onDelete={() => {}} />)
-  expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  expect(screen.getAllByLabelText('Add to playlist')).toHaveLength(3)
 })
 
 test('shows track names without extension', () => {
@@ -37,15 +37,16 @@ test('renders empty state when tracks array is empty', () => {
   expect(screen.getByText(/no tracks yet/i)).toBeInTheDocument()
 })
 
-test('delete button renders only for upload-source rows', () => {
+test('delete button renders for all track rows', () => {
   wrap(<TrackList tracks={TRACKS} currentTrack={null} onSelect={() => {}} onDelete={() => {}} />)
   const deleteButtons = screen.getAllByLabelText('Delete track')
-  expect(deleteButtons).toHaveLength(1) // only Beta is upload
+  expect(deleteButtons).toHaveLength(3)
 })
 
 test('calls onDelete when delete button clicked', async () => {
   const onDelete = vi.fn()
   wrap(<TrackList tracks={TRACKS} currentTrack={null} onSelect={() => {}} onDelete={onDelete} />)
-  await userEvent.click(screen.getByLabelText('Delete track'))
+  const deleteButtons = screen.getAllByLabelText('Delete track')
+  await userEvent.click(deleteButtons[1]) // Beta is index 1
   expect(onDelete).toHaveBeenCalledWith(TRACKS[1])
 })

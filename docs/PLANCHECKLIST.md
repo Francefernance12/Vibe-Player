@@ -105,7 +105,7 @@ This file is the first thing any agent or collaborator should read to understand
 Session 2C — Bug Fixes + Core UX Features ✅ COMPLETE
 Bug Fix 1 — Deezer Previews
 
-✅ Add externalUrl?: string to Track in shared/types.ts
+✅ Add externalUrl?: string to Track in shared/types.ts AND client/src/types.ts
 ✅ Update usePlayer.play() to use externalUrl as Howler src when present
 ✅ Update handleSearchSelect in App.tsx to set externalUrl: result.previewUrl
 
@@ -134,20 +134,25 @@ Sort & Filter
 Wrap-up
 
 ✅ npm test — 40 tests pass (11 server + 29 client)
+✅ Hotfix: client/src/types.ts missing externalUrl — caught by Vercel build on PR #3, fixed and pushed
 ⬜ Manual smoke test: Deezer plays · playlist plays · delete works · filter/sort works
-⬜ Update docs/PLANCHECKLIST.md, commit, run /commitReview
-⬜ Checkpoint: All four items working with passing tests
+⬜ Checkpoint: All four items working with passing tests (pending PR #3 merge)
 
 ---
 
-Session 2D — UI Polish ⬜ OPTIONAL
+Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
-Only if 2C is fully clean.
-
-
-⬜ Distinct play-preview vs add-to-playlist buttons in SearchResults
-⬜ Now-playing animated indicator in PlaylistPanel (if not done in 2C)
-⬜ Update docs/PLANCHECKLIST.md, commit, run /commitReview
+- ✅ PlaylistContext rewritten for multi-playlist support (`playlists:v2` storage key)
+- ✅ `createPlaylist(name): string` added; `addLocal` now requires `playlistId`; `addDeezer` always targets favorites
+- ✅ `PlaylistPanel` rewritten: collapsible accordion per playlist, chevron toggle, track count badge
+- ✅ "New playlist" inline input with `create` button and Escape-to-cancel
+- ✅ DndContext scoped per-playlist accordion section
+- ✅ Currently-playing item highlighted with orange dot + animated pulse
+- ✅ `TrackList` updated: inline playlist picker expands below each row (grid-rows animation)
+- ✅ Picker shows all playlists with orange checkmark for already-added ones
+- ✅ `SearchResults` updated: `playlists.some(...)` instead of stale `items` reference
+- ✅ All tests updated for new multi-playlist API: 42 tests pass (11 server + 31 client)
+- ✅ Update docs/PLANCHECKLIST.md and docs/DECISIONS.md
 
 ---
 

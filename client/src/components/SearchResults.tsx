@@ -1,10 +1,11 @@
 import { memo } from 'react'
-import { SearchTrack } from '../types'
-import { usePlaylist } from '../contexts/PlaylistContext'
+import { SearchTrack, Track } from '../types'
 
 interface Props {
   results: SearchTrack[]
+  tracks: Track[]
   onSelect: (track: SearchTrack) => void
+  onAddToTracks: (track: SearchTrack) => void
 }
 
 function fmt(ms: number) {
@@ -12,9 +13,7 @@ function fmt(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export const SearchResults = memo(function SearchResults({ results, onSelect }: Props) {
-  const { addDeezer, items } = usePlaylist()
-
+export const SearchResults = memo(function SearchResults({ results, tracks, onSelect, onAddToTracks }: Props) {
   if (results.length === 0) return null
 
   return (
@@ -22,7 +21,7 @@ export const SearchResults = memo(function SearchResults({ results, onSelect }: 
       <p className="text-[10px] uppercase tracking-widest text-zinc-600 px-4 pt-3 pb-1.5 font-mono">Deezer</p>
       <ul className="divide-y divide-[#1e1e21] max-h-72 overflow-y-auto">
         {results.map(t => {
-          const inPlaylist = items.some(i => i.kind === 'deezer' && i.track.id === t.id)
+          const inTracks = tracks.some(tr => tr.id === t.id)
           return (
             <li key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors">
               <div
@@ -41,16 +40,16 @@ export const SearchResults = memo(function SearchResults({ results, onSelect }: 
                 <span className="font-mono text-xs text-zinc-600">{fmt(t.durationMs)}</span>
               </div>
               <button
-                onClick={() => addDeezer(t)}
-                disabled={inPlaylist}
+                onClick={() => { if (!inTracks) onAddToTracks(t) }}
+                disabled={inTracks}
                 className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-                  inPlaylist
+                  inTracks
                     ? 'text-orange-400 cursor-default'
                     : 'text-zinc-600 hover:text-orange-400 hover:bg-orange-500/10'
                 }`}
-                aria-label="Add to playlist"
+                aria-label="Add to track list"
               >
-                {inPlaylist ? (
+                {inTracks ? (
                   <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
                     <path d="M13.5 3.5L6 11 2.5 7.5l-1 1L6 13l8.5-8.5-1-1z" />
                   </svg>

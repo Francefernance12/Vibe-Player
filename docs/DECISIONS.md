@@ -33,6 +33,9 @@ Spotify was attempted first but requires the developer app owner to hold an acti
 ### Deezer preview URLs played via Howler
 Deezer's 30-second preview URLs are direct MP3 links. A synthetic `Track` object is constructed from the preview URL and passed to the existing `usePlayer` hook — the same pattern used for local tracks. No new playback infrastructure needed.
 
+### Dual Track type definition (known divergence)
+`client/src/types.ts` defines its own `Track` interface rather than re-exporting from `shared/types.ts`. This means any new field added to the shared type must also be added to the client copy. The divergence was caught by the Vercel build when `externalUrl` was added to `shared/types.ts` but not `client/src/types.ts`. When the DB lands in Phase 3, consolidate to a single source of truth by having the client import from shared.
+
 ---
 
 ## Phase 2 Polish Pass — "Wax" Design System
@@ -42,6 +45,19 @@ Replaced the default indigo Tailwind accent with a cohesive "Wax" design system:
 
 ### Search results as absolute overlay
 `SearchResults` is now positioned `absolute top-full z-50` inside a `relative` wrapper, floating over the layout rather than pushing content down. This prevents the search dropdown from reflowing the playlist and track list panels beneath it.
+
+---
+
+## Session 2D
+
+### Multi-playlist architecture (playlists:v2)
+`PlaylistContext` was redesigned from a single flat `items: PlaylistItem[]` array to `playlists: Playlist[]`, each with its own `id`, `name`, and `items`. The default "Favorites" playlist uses a stable `id: 'favorites'` constant. New storage key `playlists:v2` is a breaking change vs `playlist:v1` — existing saved playlists are not migrated (acceptable for pre-auth local state). `addDeezer` always targets Favorites; `addLocal` requires an explicit `playlistId`.
+
+### Inline playlist picker over floating dropdown
+TrackList's "+" button opens a playlist picker that expands inline below the track row using a CSS `grid-rows-[0fr]/[1fr]` transition. A floating/fixed dropdown would be clipped by `overflow-hidden` on the parent card. The inline accordion avoids this entirely with no JavaScript height measurement needed.
+
+### grid-rows transition for accordions
+Both `PlaylistPanel` sections and the TrackList inline picker use `transition-[grid-template-rows]` with `grid-rows-[0fr]/[1fr]` for smooth open/close animation. This is a pure-CSS technique — no `max-height` hacks, no JS measurement, no layout thrash.
 
 ---
 

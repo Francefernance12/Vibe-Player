@@ -20,7 +20,7 @@ function makeSyntheticTrack(result: SearchTrack): Track {
     originalName: `${result.title} — ${result.artist}`,
     mimeType: 'audio/mpeg',
     size: 0,
-    source: 'upload',
+    source: 'deezer',
     externalUrl: result.previewUrl ?? undefined,
   }
 }
@@ -64,8 +64,15 @@ export default function App() {
     }
   }, [player])
 
+  const handleAddDeezerToTracks = useCallback((result: SearchTrack) => {
+    const track = makeSyntheticTrack(result)
+    setTracks(prev => prev.some(t => t.id === track.id) ? prev : [...prev, track])
+  }, [])
+
   const handleDeleteTrack = useCallback(async (track: Track) => {
-    await fetch(`/api/tracks/${encodeURIComponent(track.filename)}`, { method: 'DELETE' })
+    if (track.source === 'upload') {
+      await fetch(`/api/tracks/${encodeURIComponent(track.filename)}`, { method: 'DELETE' })
+    }
     setTracks(prev => prev.filter(t => t.filename !== track.filename))
     if (player.currentTrack?.filename === track.filename) {
       player.stop()
@@ -95,7 +102,7 @@ export default function App() {
           {/* Search — results float as overlay, never push content */}
           <div className="relative">
             <SearchBar onResults={setSearchResults} />
-            <SearchResults results={searchResults} onSelect={handleSearchSelect} />
+            <SearchResults results={searchResults} tracks={tracks} onSelect={handleSearchSelect} onAddToTracks={handleAddDeezerToTracks} />
           </div>
 
           <PlaylistPanel onPlay={handlePlaylistPlay} currentTrack={player.currentTrack} />
