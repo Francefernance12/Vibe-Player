@@ -222,6 +222,25 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ---
 
+## Phase 3B — Hotfix: Persistent Database
+
+### Session 5A — SQLite → Turso (libSQL) ✅ COMPLETE
+
+- ✅ Root cause identified: Vercel `/tmp` is ephemeral per invocation — register writes user, login runs in a new container and can't find them
+- ✅ `@libsql/client` installed; `better-sqlite3` removed
+- ✅ `server/db/index.ts` rewritten: `getDb()` returns libSQL `Client`, all helpers async
+- ✅ `server/db/migrate.ts` rewritten: async, takes `Client`
+- ✅ `server/src/routes/auth.ts` — `await` on all DB calls
+- ✅ `server/src/routes/playlists.ts` — all handlers made async with try/catch
+- ✅ `api/index.ts` — awaits `initDb()` before serving first request
+- ✅ `server/src/index.ts` — calls `initDb()` before starting server
+- ✅ All 3 test files updated for async DB helpers
+- ✅ All 42 server tests pass
+- ✅ User added `TURSO_URL` + `TURSO_AUTH_TOKEN` to Vercel dashboard
+- ✅ **Checkpoint**: Register → log out → log in → succeeds on live Vercel URL
+
+---
+
 ## Phase 4 — Polish + Scale
 
 ### Session 4A — Performance ✅ COMPLETE

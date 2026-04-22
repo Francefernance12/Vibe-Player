@@ -49,14 +49,14 @@ router.post('/register', authRateLimit, async (req: Request, res: Response, next
       return
     }
     const db = getDb()
-    if (getUserByEmail(db, normalised)) {
+    if (await getUserByEmail(db, normalised)) {
       res.status(409).json({ error: 'Email already registered' })
       return
     }
     const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
-    const user = createUser(db, { id: uuidv4(), email: normalised, password_hash })
+    const user = await createUser(db, { id: uuidv4(), email: normalised, password_hash })
     // Every new user gets a default Favorites playlist
-    createPlaylist(db, { id: uuidv4(), user_id: user.id, name: 'Favorites' })
+    await createPlaylist(db, { id: uuidv4(), user_id: user.id, name: 'Favorites' })
     const token = issueToken(user.id, user.email)
     setTokenCookie(res, token)
     res.status(201).json({ id: user.id, email: user.email })
@@ -72,7 +72,7 @@ router.post('/login', authRateLimit, async (req: Request, res: Response, next: N
       return
     }
     const db = getDb()
-    const user = getUserByEmail(db, email.toLowerCase().trim())
+    const user = await getUserByEmail(db, email.toLowerCase().trim())
     if (!user) {
       res.status(401).json({ error: 'Invalid credentials' })
       return
@@ -95,14 +95,16 @@ router.post('/logout', (_req: Request, res: Response) => {
 })
 
 // GET /api/auth/me
-router.get('/me', authMiddleware, (req: Request, res: Response) => {
-  const db = getDb()
-  const user = getUserById(db, req.user!.userId)
-  if (!user) {
-    res.status(404).json({ error: 'User not found' })
-    return
-  }
-  res.json({ id: user.id, email: user.email })
+router.get('/me', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const db = getDb()
+    const user = await getUserById(db, req.user!.userId)
+    if (!user) {
+      res.status(404).json({ error: 'User not found' })
+      return
+    }
+    res.json({ id: user.id, email: user.email })
+  } catch (err) { next(err) }
 })
 
 export default router

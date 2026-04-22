@@ -1,12 +1,14 @@
 import request from 'supertest'
+import type { Client } from '@libsql/client'
 
 process.env.JWT_SECRET = 'test-secret-for-playlist-tests'
 
-jest.mock('../../db/index', () => {
-  const actual = jest.requireActual('../../db/index')
-  const db = actual.createMemoryDb()
-  return { ...actual, getDb: () => db }
-})
+let testDb: Client
+
+jest.mock('../../db/index', () => ({
+  ...jest.requireActual('../../db/index'),
+  getDb: () => testDb,
+}))
 
 import app from '../app'
 
@@ -15,6 +17,9 @@ const PASSWORD = 'password123'
 let cookie: string[]
 
 beforeAll(async () => {
+  const { createMemoryDb, initDb } = jest.requireActual('../../db/index')
+  testDb = createMemoryDb()
+  await initDb(testDb)
   const res = await request(app).post('/api/auth/register').send({ email: EMAIL, password: PASSWORD })
   cookie = res.headers['set-cookie'] as unknown as string[]
 })
