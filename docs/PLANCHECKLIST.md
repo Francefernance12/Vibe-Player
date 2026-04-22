@@ -70,64 +70,84 @@ This file is the first thing any agent or collaborator should read to understand
 
 > Spotify Web API requires the app owner to have an active Premium subscription
 > to use the search endpoint. The implementation was correct but the API returns
-> 403 regardless of credentials without Premium. All Spotify code will be
+> 403 regardless of credentials without Premium. All Spotify code was
 > removed and replaced with Deezer in the new Session 2A below.
-
-- ~~✅ GitHub MCP configured~~
-- ~~✅ Spotify Web API (Client Credentials) endpoint built~~
-- ~~✅ `GET /api/search?q=` endpoint — calls Spotify search~~
-- ~~✅ `SearchBar` component — debounced input~~
-- ~~✅ `SearchResults` component~~
-- ~~✅ Spotify preview URLs wired to Howler~~
-- ~~✅ Tests written (8 server, 13 client)~~
-- ~~❌ **Checkpoint blocked**: Spotify returns 403 — Premium required~~
 
 ---
 
-### Session 2A — Deezer Search (replaces Spotify) ✅
+### Session 2A — Deezer Search ✅ COMPLETE
 
 > Deezer public API requires no API key, no OAuth, no `.env` variables.
 > Search returns track metadata + direct 30-second preview MP3 URLs.
-> All Spotify-specific code removed and replaced.
 
-- ✅ Decision entry added to `docs/DECISIONS.md` — Deezer chosen, Spotify blocked reason documented
-- ✅ All Spotify-specific server code removed (`routes/search.ts` rewritten)
-- ✅ Token-caching / credential logic removed from server
-- ✅ `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` removed from `.env`
-- ✅ `GET /api/search?q=` rewritten to proxy `https://api.deezer.com/search?q=`
-- ✅ Response normalized to `{ id, title, artist, albumArt, previewUrl, durationMs, source: 'deezer' }`
-- ✅ `client/src/types.ts` updated — `SearchTrack.source` changed to `'deezer'`
-- ✅ `SearchBar` component rewired — no API key needed, "Spotify" references removed
-- ✅ `SearchResults` component updated — shows album art, "Deezer results" label
-- ✅ Tests rewritten:
-  - ✅ `GET /api/search` returns 400 with no query
-  - ✅ `GET /api/search?q=test` returns correct Deezer shape (mock fetch)
-  - ✅ `SearchBar` renders results from mock data
-- ✅ All tests pass: 8 server (2 files) + 13 client (4 files)
-- ✅ Manual smoke test: `curl /api/search?q=radiohead` returns Deezer tracks with previewUrl confirmed
-- ✅ **Checkpoint**: Search returns Deezer results, preview audio plays
+- ✅ Decision entry added to `docs/DECISIONS.md` — Deezer chosen, Spotify blocked
+- ✅ `GET /api/search?q=` proxies Deezer, returns normalized `SearchTrack[]`
+- ✅ `SearchBar` + `SearchResults` components built and wired
+- ✅ `client/src/types.ts` updated — `SearchTrack.source: 'deezer'`
+- ✅ Tests pass: search returns 400 without q, correct shape with q
+- ✅ Manual smoke test: search returns Deezer tracks
+- ✅ **Checkpoint**: Search results appear in UI
 
 ---
 
-### Session 2B — Playlist Management (Frontend Only)
+### Session 2B — Playlist Management (Frontend Only) ✅ COMPLETE
 
-- ✅ `PlaylistContext` created with React context (`/client/src/contexts/PlaylistContext.tsx`)
-- ✅ "Add to playlist" button on each track (local + Deezer results), shows ✓ when already added
-- ✅ `PlaylistPanel` component with reorderable list (`@dnd-kit/sortable`)
-- ✅ `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` installed
+- ✅ `PlaylistContext` created with React context
+- ✅ "Add to playlist" button on each track (local + Deezer results)
+- ✅ `PlaylistPanel` component with drag-and-drop reordering (`@dnd-kit`)
 - ✅ Playlist persisted to `localStorage` with versioned key (`playlist:v1`)
-- ✅ `localStorage` access wrapped in try/catch
-- ✅ Test: add local track to playlist
-- ✅ Test: add Deezer track to playlist
-- ✅ Test: no duplicates added
-- ✅ Test: remove track from playlist
-- ✅ Test: reorder tracks in playlist
-- ✅ Test: persists to localStorage and reloads
-- ✅ All tests pass: 8 server (2 files) + 20 client (5 files)
-- ⬜ **Checkpoint**: Playlist persists on page refresh
+- ✅ All playlist context tests pass (add, remove, reorder, persistence)
+- ✅ **Known issue**: Playlist items cannot be played (display-only)
+- ✅ **Known issue**: Deezer preview URLs do not play (routing bug)
+- ✅ **Checkpoint**: Playlist UI renders and persists
 
-> Note: YouTube streaming was the original Session 2B. Moved to Phase 4 backlog
-> due to TOS complexity. Playlist management is higher value for Phase 3 prep.
+---
+Session 2C — Bug Fixes + Core UX Features ✅ COMPLETE
+Bug Fix 1 — Deezer Previews
+
+✅ Add externalUrl?: string to Track in shared/types.ts
+✅ Update usePlayer.play() to use externalUrl as Howler src when present
+✅ Update handleSearchSelect in App.tsx to set externalUrl: result.previewUrl
+
+Bug Fix 2 — Playlist Playback
+
+✅ Add onPlay: (item: PlaylistItem) => void prop to PlaylistPanel
+✅ Wire onPlay in App.tsx — local tracks use API route; Deezer items use externalUrl
+✅ Make each SortableRow track-name area clickable
+✅ Highlight currently-playing item in playlist
+
+Delete Uploaded Tracks
+
+✅ DELETE /api/tracks/:filename endpoint — deletes from uploads/ only, 403 for samples
+✅ Supertest: delete succeeds for upload; returns 403 for sample
+✅ Delete icon button on upload-source rows in TrackList (hidden for samples)
+✅ On delete: call endpoint, remove from local state, stop playback if active
+✅ Vitest: delete button renders only for upload rows
+
+Sort & Filter
+
+✅ Filter input above TrackList: real-time match on originalName
+✅ Sort dropdown: A–Z, Z–A, Size ↑, Size ↓, Source (samples first)
+✅ State in App.tsx, client-side only
+✅ Vitest: filter narrows results; sort orders correctly
+
+Wrap-up
+
+✅ npm test — 40 tests pass (11 server + 29 client)
+⬜ Manual smoke test: Deezer plays · playlist plays · delete works · filter/sort works
+⬜ Update docs/PLANCHECKLIST.md, commit, run /commitReview
+⬜ Checkpoint: All four items working with passing tests
+
+---
+
+Session 2D — UI Polish ⬜ OPTIONAL
+
+Only if 2C is fully clean.
+
+
+⬜ Distinct play-preview vs add-to-playlist buttons in SearchResults
+⬜ Now-playing animated indicator in PlaylistPanel (if not done in 2C)
+⬜ Update docs/PLANCHECKLIST.md, commit, run /commitReview
 
 ---
 
@@ -191,7 +211,7 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 4A — Performance
 
-- ⬜ Root `tsconfig.json` / `server/tsconfig.json` conflict resolved
+- ✅ Root `tsconfig.json` / `server/tsconfig.json` conflict resolved (fixed in Phase 2 polish pass)
 - ⬜ Lighthouse audit run on live Vercel URL
 - ⬜ Performance issues identified and fixed
 - ⬜ Loading skeletons added to `TrackList` and search results
@@ -225,3 +245,4 @@ This file is the first thing any agent or collaborator should read to understand
 |---|---|---|---|
 | 1A–1C | 2026-04-19 | `.env` in diff; tsconfig conflict; missing error boundary on SearchBar | ⬜ Pending |
 | 2A (Spotify) | 2026-04-20 | Spotify 403 — Premium required; code complete but blocked | ✅ Superseded by Deezer |
+| 2B | 2026-04-20 | Playlist display-only (no playback); Deezer preview routing bug | ⬜ Scheduled for 2C |

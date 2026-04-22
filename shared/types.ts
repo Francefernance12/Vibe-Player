@@ -5,4 +5,5 @@ export interface Track {
   mimeType: string;
   size: number;
   source: 'sample' | 'upload';
+  externalUrl?: string;
 }

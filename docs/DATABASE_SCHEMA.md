@@ -67,14 +67,14 @@ CREATE TABLE playlists (
 
 Tracks within a playlist. Each row is one track entry in one playlist.
 Track data is stored as JSON because tracks can come from different sources
-(local file, Spotify, YouTube) with different shapes.
+(local file, Deezer) with different shapes.
 
 ```sql
 CREATE TABLE playlist_tracks (
   id          TEXT PRIMARY KEY,        -- UUID v4
   playlist_id TEXT NOT NULL,           -- FK → playlists.id
   position    INTEGER NOT NULL,        -- 0-indexed sort order
-  source      TEXT NOT NULL,           -- 'local' | 'spotify' | 'youtube'
+  source      TEXT NOT NULL,           -- 'local' | 'deezer'
   track_data  TEXT NOT NULL,           -- JSON blob, shape depends on source
   added_at    TEXT NOT NULL,           -- ISO 8601 UTC string
   FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
@@ -86,7 +86,7 @@ CREATE TABLE playlist_tracks (
 | id | TEXT (UUID) | Primary key |
 | playlist_id | TEXT | Foreign key to `playlists`, cascades on playlist delete |
 | position | INTEGER | Used to order tracks in the playlist. Re-number on reorder. |
-| source | TEXT | Enum-like: `'local'`, `'spotify'`, `'youtube'` |
+| source | TEXT | Enum-like: `'local'`, `'deezer'` |
 | track_data | TEXT | JSON string. See track shapes below. |
 | added_at | TEXT | ISO string |
 
@@ -107,25 +107,16 @@ Parse with `JSON.parse()` server-side when reading.
 }
 ```
 
-### Spotify track (Phase 2+)
+### Deezer track
 ```json
 {
-  "spotifyId": "4uLU6hMCjMI75M1A2tKUQC",
-  "name": "Track Name",
+  "id": "1234567890",
+  "title": "Track Name",
   "artist": "Artist Name",
   "albumArt": "https://...",
-  "durationMs": 214000,
-  "previewUrl": "https://..."
-}
-```
-
-### YouTube track (Phase 2+)
-```json
-{
-  "youtubeUrl": "https://youtube.com/watch?v=...",
-  "title": "Video Title",
-  "channelName": "Channel",
-  "thumbnailUrl": "https://..."
+  "previewUrl": "https://...",
+  "durationMs": 30000,
+  "source": "deezer"
 }
 ```
 
@@ -178,4 +169,4 @@ in order on startup if they haven't been run yet. No ORM needed at this scale.
 
 - Audio files — stored on disk in `/server/uploads/` and `/server/samples/`
 - Session tokens — stored as signed JWTs in httpOnly cookies, not in DB
-- Search results — fetched live from Spotify/YouTube, not cached
+- Search results — fetched live from Deezer, not cached

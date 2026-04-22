@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import { getAllTracks, resolveTrackPath, UPLOADS_DIR, AUDIO_MIME } from '../tracks';
+import { getAllTracks, resolveTrackPath, isSampleFilename, UPLOADS_DIR, AUDIO_MIME } from '../tracks';
 
 const router = Router();
 
@@ -58,6 +58,22 @@ router.get('/:filename/stream', (req: Request, res: Response) => {
   res.setHeader('Content-Length', stat.size);
   res.setHeader('Accept-Ranges', 'bytes');
   fs.createReadStream(filePath).pipe(res);
+});
+
+/** DELETE /api/tracks/:filename */
+router.delete('/:filename', (req: Request, res: Response) => {
+  const { filename } = req.params as { filename: string };
+  if (isSampleFilename(filename)) {
+    res.status(403).json({ error: 'Cannot delete sample tracks' });
+    return;
+  }
+  const uploadPath = path.join(UPLOADS_DIR, filename);
+  if (!fs.existsSync(uploadPath)) {
+    res.status(404).json({ error: 'Track not found' });
+    return;
+  }
+  fs.unlinkSync(uploadPath);
+  res.status(204).end();
 });
 
 export default router;

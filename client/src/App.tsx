@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Track, SearchTrack } from './types'
 import { usePlayer } from './hooks/usePlayer'
 import { PlaylistProvider } from './contexts/PlaylistContext'
+import { PlaylistItem } from './contexts/PlaylistContext'
 import { TrackList } from './components/TrackList'
 import { PlayerControls } from './components/PlayerControls'
 import { ProgressBar } from './components/ProgressBar'
@@ -10,11 +11,26 @@ import { FileUpload } from './components/FileUpload'
 import { SearchBar } from './components/SearchBar'
 import { SearchResults } from './components/SearchResults'
 import { PlaylistPanel } from './components/PlaylistPanel'
+import { filterAndSortTracks, SortOption } from './utils/trackFilter'
+
+function makeSyntheticTrack(result: SearchTrack): Track {
+  return {
+    id: result.id,
+    filename: result.previewUrl ?? result.id,
+    originalName: `${result.title} — ${result.artist}`,
+    mimeType: 'audio/mpeg',
+    size: 0,
+    source: 'upload',
+    externalUrl: result.previewUrl ?? undefined,
+  }
+}
 
 export default function App() {
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(true)
   const [searchResults, setSearchResults] = useState<SearchTrack[]>([])
+  const [filterText, setFilterText] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>('default')
 
   const player = usePlayer(tracks)
 
@@ -36,16 +52,30 @@ export default function App() {
 
   const handleSearchSelect = useCallback((result: SearchTrack) => {
     if (!result.previewUrl) return
-    const synthetic: Track = {
-      id: result.id,
-      filename: result.previewUrl,
-      originalName: `${result.title} — ${result.artist}`,
-      mimeType: 'audio/mpeg',
-      size: 0,
-      source: 'upload',
-    }
-    player.play(synthetic)
+    player.play(makeSyntheticTrack(result))
   }, [player])
+
+  const handlePlaylistPlay = useCallback((item: PlaylistItem) => {
+    if (item.kind === 'local') {
+      player.play(item.track)
+    } else {
+      if (!item.track.previewUrl) return
+      player.play(makeSyntheticTrack(item.track))
+    }
+  }, [player])
+
+  const handleDeleteTrack = useCallback(async (track: Track) => {
+    await fetch(`/api/tracks/${encodeURIComponent(track.filename)}`, { method: 'DELETE' })
+    setTracks(prev => prev.filter(t => t.filename !== track.filename))
+    if (player.currentTrack?.filename === track.filename) {
+      player.stop()
+    }
+  }, [player])
+
+  const visibleTracks = useMemo(
+    () => filterAndSortTracks(tracks, filterText, sortOption),
+    [tracks, filterText, sortOption]
+  )
 
   const nowPlayingName = player.currentTrack
     ? player.currentTrack.originalName.replace(/\.[^.]+$/, '')
@@ -68,18 +98,42 @@ export default function App() {
             <SearchResults results={searchResults} onSelect={handleSearchSelect} />
           </div>
 
-          <PlaylistPanel />
+          <PlaylistPanel onPlay={handlePlaylistPlay} currentTrack={player.currentTrack} />
 
           <FileUpload onUploaded={handleUploaded} />
 
+          {/* Track list with filter + sort */}
           <div className="bg-[#111113] border border-[#1e1e21] rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-[#1e1e21]">
+              <input
+                type="text"
+                placeholder="Filter tracks…"
+                value={filterText}
+                onChange={e => setFilterText(e.target.value)}
+                className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
+              />
+              <select
+                value={sortOption}
+                onChange={e => setSortOption(e.target.value as SortOption)}
+                className="bg-transparent text-xs text-zinc-500 outline-none cursor-pointer hover:text-zinc-300 transition-colors"
+                aria-label="Sort tracks"
+              >
+                <option value="default">Default</option>
+                <option value="az">A–Z</option>
+                <option value="za">Z–A</option>
+                <option value="sizeAsc">Size ↑</option>
+                <option value="sizeDesc">Size ↓</option>
+                <option value="source">Source</option>
+              </select>
+            </div>
             {loading ? (
               <p className="text-zinc-600 text-sm p-4 text-center">Loading tracks…</p>
             ) : (
               <TrackList
-                tracks={tracks}
+                tracks={visibleTracks}
                 currentTrack={player.currentTrack}
                 onSelect={handleSelect}
+                onDelete={handleDeleteTrack}
               />
             )}
           </div>
