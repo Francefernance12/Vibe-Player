@@ -133,6 +133,24 @@ Express 4 does not auto-propagate rejected async handlers. Auth route handlers (
 
 ---
 
+## Phase 3B — Database Hotfix
+
+### Session 5A — Persistent Database
+
+**Turso (libSQL) over SQLite file / better-sqlite3**
+`better-sqlite3` wrote to `/tmp/music.db` on Vercel. Each serverless invocation gets a fresh container with an empty `/tmp`, so a user registered in one request was invisible to a login request in the next container. Replaced with `@libsql/client` pointing to a Turso-hosted SQLite instance (`libsql://...turso.io`). The SQL schema and migration files are unchanged — only the driver and call pattern changed (sync → async). Turso's free tier covers this project's needs, and the libSQL wire protocol is compatible with the existing SQLite migrations.
+
+**Async DB helpers throughout**
+`better-sqlite3` is synchronous; `@libsql/client` is Promise-based. All DB helper functions in `server/db/index.ts` are now `async`. Route handlers already used `async/await`, so only `await` keywords and `next: NextFunction` additions were needed. No architectural changes to the Express layer.
+
+**`initDb()` called at server startup, not inside `getDb()`**
+Migrations and the `PRAGMA foreign_keys = ON` call are async and must be awaited before the first request is served. `initDb()` is called in `server/src/index.ts` (local dev, blocks `app.listen`) and in `api/index.ts` (Vercel, stored as a module-level promise awaited by the handler). `getDb()` remains synchronous — it only creates the libSQL `Client` object, which is cheap.
+
+**In-memory libSQL client for tests**
+`createClient({ url: ':memory:' })` provides isolated per-test databases with no filesystem I/O. Tests call `await initDb(db)` in `beforeAll`/`beforeEach` to apply migrations before any requests run.
+
+---
+
 ## AI Workflow & Tooling
 
 **Claude Code (claude CLI) as primary development agent**
