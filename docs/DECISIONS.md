@@ -33,6 +33,9 @@ Spotify was attempted first but requires the developer app owner to hold an acti
 ### Deezer preview URLs played via Howler
 Deezer's 30-second preview URLs are direct MP3 links. A synthetic `Track` object is constructed from the preview URL and passed to the existing `usePlayer` hook — the same pattern used for local tracks. No new playback infrastructure needed.
 
+### Dual Track type definition (known divergence)
+`client/src/types.ts` defines its own `Track` interface rather than re-exporting from `shared/types.ts`. This means any new field added to the shared type must also be added to the client copy. The divergence was caught by the Vercel build when `externalUrl` was added to `shared/types.ts` but not `client/src/types.ts`. When the DB lands in Phase 3, consolidate to a single source of truth by having the client import from shared.
+
 ---
 
 ## Phase 2 Polish Pass — "Wax" Design System

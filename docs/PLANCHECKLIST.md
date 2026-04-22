@@ -105,7 +105,7 @@ This file is the first thing any agent or collaborator should read to understand
 Session 2C — Bug Fixes + Core UX Features ✅ COMPLETE
 Bug Fix 1 — Deezer Previews
 
-✅ Add externalUrl?: string to Track in shared/types.ts
+✅ Add externalUrl?: string to Track in shared/types.ts AND client/src/types.ts
 ✅ Update usePlayer.play() to use externalUrl as Howler src when present
 ✅ Update handleSearchSelect in App.tsx to set externalUrl: result.previewUrl
 
@@ -134,9 +134,9 @@ Sort & Filter
 Wrap-up
 
 ✅ npm test — 40 tests pass (11 server + 29 client)
+✅ Hotfix: client/src/types.ts missing externalUrl — caught by Vercel build on PR #3, fixed and pushed
 ⬜ Manual smoke test: Deezer plays · playlist plays · delete works · filter/sort works
-⬜ Update docs/PLANCHECKLIST.md, commit, run /commitReview
-⬜ Checkpoint: All four items working with passing tests
+⬜ Checkpoint: All four items working with passing tests (pending PR #3 merge)
 
 ---
 
