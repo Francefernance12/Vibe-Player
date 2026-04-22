@@ -4,6 +4,7 @@ import { SearchTrack, Track } from '../types'
 interface Props {
   results: SearchTrack[]
   tracks: Track[]
+  loading?: boolean
   onSelect: (track: SearchTrack) => void
   onAddToTracks: (track: SearchTrack) => void
 }
@@ -13,13 +14,29 @@ function fmt(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export const SearchResults = memo(function SearchResults({ results, tracks, onSelect, onAddToTracks }: Props) {
-  if (results.length === 0) return null
+function SkeletonRow() {
+  return (
+    <li className="flex items-center gap-3 px-4 py-3 animate-pulse">
+      <div className="w-8 h-8 rounded-md bg-zinc-800 flex-shrink-0" />
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <div className="h-3 bg-zinc-800 rounded w-2/3" />
+        <div className="h-2.5 bg-zinc-800/60 rounded w-1/3" />
+      </div>
+      <div className="h-2.5 bg-zinc-800/60 rounded w-8" />
+    </li>
+  )
+}
+
+export const SearchResults = memo(function SearchResults({ results, tracks, loading, onSelect, onAddToTracks }: Props) {
+  if (!loading && results.length === 0) return null
 
   return (
     <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-[#111113] border border-[#1e1e21] rounded-2xl overflow-hidden shadow-2xl shadow-black/60">
       <p className="text-[10px] uppercase tracking-widest text-zinc-600 px-4 pt-3 pb-1.5 font-mono">Deezer</p>
       <ul className="divide-y divide-[#1e1e21] max-h-72 overflow-y-auto">
+        {loading && results.length === 0 && (
+          <>{[0, 1, 2].map(i => <SkeletonRow key={i} />)}</>
+        )}
         {results.map(t => {
           const inTracks = tracks.some(tr => tr.id === t.id)
           return (
