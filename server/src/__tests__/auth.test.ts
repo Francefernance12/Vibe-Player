@@ -1,15 +1,22 @@
 import request from 'supertest'
+import type { Client } from '@libsql/client'
 
 process.env.JWT_SECRET = 'test-secret-for-auth-tests'
 
-// Replace the DB singleton with an in-memory database for isolation
-jest.mock('../../db/index', () => {
-  const actual = jest.requireActual('../../db/index')
-  const db = actual.createMemoryDb()
-  return { ...actual, getDb: () => db }
-})
+let testDb: Client
+
+jest.mock('../../db/index', () => ({
+  ...jest.requireActual('../../db/index'),
+  getDb: () => testDb,
+}))
 
 import app from '../app'
+
+beforeAll(async () => {
+  const { createMemoryDb, initDb } = jest.requireActual('../../db/index')
+  testDb = createMemoryDb()
+  await initDb(testDb)
+})
 
 const EMAIL = 'test@example.com'
 const PASSWORD = 'password123'

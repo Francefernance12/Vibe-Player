@@ -1,5 +1,4 @@
-import Database from 'better-sqlite3'
-import path from 'path'
+import { createClient, Client, Row } from '@libsql/client'
 import { runMigrations } from './migrate'
 import type { DbTrackSource } from '../../shared/types'
 
@@ -28,115 +27,143 @@ export interface DbPlaylistTrack {
   added_at: string
 }
 
-// --- Singleton ---
+// --- Row converters ---
 
-let _db: Database.Database | null = null
-
-function resolveDbPath(): string {
-  // Vercel serverless: filesystem is read-only except /tmp
-  if (process.env.VERCEL) return '/tmp/music.db'
-  // Works for both ts-node (server/db/) and tsc output (server/dist/db/)
-  return path.join(__dirname, '..', 'music.db')
+function toDbUser(r: Row): DbUser {
+  return { id: String(r.id), email: String(r.email), password_hash: String(r.password_hash), created_at: String(r.created_at) }
 }
 
-export function getDb(): Database.Database {
+function toDbPlaylist(r: Row): DbPlaylist {
+  return { id: String(r.id), user_id: String(r.user_id), name: String(r.name), created_at: String(r.created_at) }
+}
+
+function toDbPlaylistTrack(r: Row): DbPlaylistTrack {
+  return {
+    id: String(r.id),
+    playlist_id: String(r.playlist_id),
+    position: Number(r.position),
+    source: String(r.source) as DbTrackSource,
+    track_data: String(r.track_data),
+    added_at: String(r.added_at),
+  }
+}
+
+// --- Singleton ---
+
+let _db: Client | null = null
+
+function resolveDbUrl(): string {
+  if (process.env.TURSO_URL) return process.env.TURSO_URL
+  return 'file:./music.db'
+}
+
+export function getDb(): Client {
   if (_db) return _db
-  _db = new Database(resolveDbPath())
-  // Must be set on every new connection (not just during migrations)
-  _db.pragma('foreign_keys = ON')
-  runMigrations(_db)
+  _db = createClient({ url: resolveDbUrl(), authToken: process.env.TURSO_AUTH_TOKEN })
   return _db
 }
 
-/** For tests: create an isolated in-memory database */
-export function createMemoryDb(): Database.Database {
-  const db = new Database(':memory:')
-  runMigrations(db)
-  return db
+/** Run PRAGMA + migrations. Call once at server startup. */
+export async function initDb(db?: Client): Promise<void> {
+  const client = db ?? getDb()
+  await client.execute('PRAGMA foreign_keys = ON')
+  await runMigrations(client)
+}
+
+/** For tests: isolated in-memory database. Call initDb(db) before use. */
+export function createMemoryDb(): Client {
+  return createClient({ url: ':memory:' })
 }
 
 // --- Users ---
 
-export function createUser(db: Database.Database, user: Omit<DbUser, 'created_at'>): DbUser {
+export async function createUser(db: Client, user: Omit<DbUser, 'created_at'>): Promise<DbUser> {
   const created_at = new Date().toISOString()
-  db.prepare(
-    'INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)'
-  ).run(user.id, user.email, user.password_hash, created_at)
+  await db.execute({
+    sql: 'INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)',
+    args: [user.id, user.email, user.password_hash, created_at],
+  })
   return { ...user, created_at }
 }
 
-export function getUserByEmail(db: Database.Database, email: string): DbUser | null {
-  return (db.prepare('SELECT * FROM users WHERE email = ?').get(email) as DbUser | undefined) ?? null
+export async function getUserByEmail(db: Client, email: string): Promise<DbUser | null> {
+  const { rows } = await db.execute({ sql: 'SELECT * FROM users WHERE email = ?', args: [email] })
+  return rows.length ? toDbUser(rows[0]) : null
 }
 
-export function getUserById(db: Database.Database, id: string): DbUser | null {
-  return (db.prepare('SELECT * FROM users WHERE id = ?').get(id) as DbUser | undefined) ?? null
+export async function getUserById(db: Client, id: string): Promise<DbUser | null> {
+  const { rows } = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] })
+  return rows.length ? toDbUser(rows[0]) : null
 }
 
 // --- Playlists ---
 
-export function createPlaylist(db: Database.Database, playlist: Omit<DbPlaylist, 'created_at'>): DbPlaylist {
+export async function createPlaylist(db: Client, playlist: Omit<DbPlaylist, 'created_at'>): Promise<DbPlaylist> {
   const created_at = new Date().toISOString()
-  db.prepare(
-    'INSERT INTO playlists (id, user_id, name, created_at) VALUES (?, ?, ?, ?)'
-  ).run(playlist.id, playlist.user_id, playlist.name, created_at)
+  await db.execute({
+    sql: 'INSERT INTO playlists (id, user_id, name, created_at) VALUES (?, ?, ?, ?)',
+    args: [playlist.id, playlist.user_id, playlist.name, created_at],
+  })
   return { ...playlist, created_at }
 }
 
-export function getPlaylistsByUser(db: Database.Database, userId: string): DbPlaylist[] {
-  return db.prepare('SELECT * FROM playlists WHERE user_id = ? ORDER BY created_at ASC').all(userId) as DbPlaylist[]
+export async function getPlaylistsByUser(db: Client, userId: string): Promise<DbPlaylist[]> {
+  const { rows } = await db.execute({
+    sql: 'SELECT * FROM playlists WHERE user_id = ? ORDER BY created_at ASC',
+    args: [userId],
+  })
+  return rows.map(toDbPlaylist)
 }
 
-export function getPlaylistById(db: Database.Database, id: string): DbPlaylist | null {
-  return (db.prepare('SELECT * FROM playlists WHERE id = ?').get(id) as DbPlaylist | undefined) ?? null
+export async function getPlaylistById(db: Client, id: string): Promise<DbPlaylist | null> {
+  const { rows } = await db.execute({ sql: 'SELECT * FROM playlists WHERE id = ?', args: [id] })
+  return rows.length ? toDbPlaylist(rows[0]) : null
 }
 
-export function deletePlaylist(db: Database.Database, id: string): void {
-  db.prepare('DELETE FROM playlists WHERE id = ?').run(id)
+export async function deletePlaylist(db: Client, id: string): Promise<void> {
+  await db.execute({ sql: 'DELETE FROM playlists WHERE id = ?', args: [id] })
 }
 
 // --- Playlist tracks ---
 
-export function getTracksByPlaylist(db: Database.Database, playlistId: string): DbPlaylistTrack[] {
-  return db.prepare(
-    'SELECT * FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC'
-  ).all(playlistId) as DbPlaylistTrack[]
+export async function getTracksByPlaylist(db: Client, playlistId: string): Promise<DbPlaylistTrack[]> {
+  const { rows } = await db.execute({
+    sql: 'SELECT * FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC',
+    args: [playlistId],
+  })
+  return rows.map(toDbPlaylistTrack)
 }
 
-export function getPlaylistTrackById(db: Database.Database, id: string): DbPlaylistTrack | null {
-  return (db.prepare('SELECT * FROM playlist_tracks WHERE id = ?').get(id) as DbPlaylistTrack | undefined) ?? null
+export async function getPlaylistTrackById(db: Client, id: string): Promise<DbPlaylistTrack | null> {
+  const { rows } = await db.execute({ sql: 'SELECT * FROM playlist_tracks WHERE id = ?', args: [id] })
+  return rows.length ? toDbPlaylistTrack(rows[0]) : null
 }
 
-export function addTrackToPlaylist(
-  db: Database.Database,
-  track: Omit<DbPlaylistTrack, 'added_at'>
-): DbPlaylistTrack {
+export async function addTrackToPlaylist(db: Client, track: Omit<DbPlaylistTrack, 'added_at'>): Promise<DbPlaylistTrack> {
   const added_at = new Date().toISOString()
-  db.prepare(
-    'INSERT INTO playlist_tracks (id, playlist_id, position, source, track_data, added_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(track.id, track.playlist_id, track.position, track.source, track.track_data, added_at)
+  await db.execute({
+    sql: 'INSERT INTO playlist_tracks (id, playlist_id, position, source, track_data, added_at) VALUES (?, ?, ?, ?, ?, ?)',
+    args: [track.id, track.playlist_id, track.position, track.source, track.track_data, added_at],
+  })
   return { ...track, added_at }
 }
 
-export function removeTrackFromPlaylist(db: Database.Database, trackId: string): void {
-  db.prepare('DELETE FROM playlist_tracks WHERE id = ?').run(trackId)
+export async function removeTrackFromPlaylist(db: Client, trackId: string): Promise<void> {
+  await db.execute({ sql: 'DELETE FROM playlist_tracks WHERE id = ?', args: [trackId] })
 }
 
-/** Replace all tracks for a playlist (used for full reorder/sync). Runs in a transaction. */
-export function replacePlaylistTracks(
-  db: Database.Database,
+/** Replace all tracks for a playlist atomically. */
+export async function replacePlaylistTracks(
+  db: Client,
   playlistId: string,
   tracks: Omit<DbPlaylistTrack, 'added_at'>[]
-): void {
-  const tx = db.transaction(() => {
-    db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(playlistId)
-    const insert = db.prepare(
-      'INSERT INTO playlist_tracks (id, playlist_id, position, source, track_data, added_at) VALUES (?, ?, ?, ?, ?, ?)'
-    )
-    const now = new Date().toISOString()
-    for (const t of tracks) {
-      insert.run(t.id, t.playlist_id, t.position, t.source, t.track_data, now)
-    }
-  })
-  tx()
+): Promise<void> {
+  const now = new Date().toISOString()
+  await db.batch([
+    { sql: 'DELETE FROM playlist_tracks WHERE playlist_id = ?', args: [playlistId] },
+    ...tracks.map(t => ({
+      sql: 'INSERT INTO playlist_tracks (id, playlist_id, position, source, track_data, added_at) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [t.id, t.playlist_id, t.position, t.source, t.track_data, now],
+    })),
+  ], 'write')
 }
