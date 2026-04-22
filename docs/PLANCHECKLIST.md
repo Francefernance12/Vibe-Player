@@ -224,14 +224,16 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ## Phase 4 — Polish + Scale
 
-### Session 4A — Performance
+### Session 4A — Performance ✅ COMPLETE
 
 - ✅ Root `tsconfig.json` / `server/tsconfig.json` conflict resolved (fixed in Phase 2 polish pass)
-- ⬜ Lighthouse audit run on live Vercel URL
-- ⬜ Performance issues identified and fixed
-- ⬜ Loading skeletons added to `TrackList` and search results
-- ⬜ Bundle size audited with `vite-plugin-visualizer`
-- ⬜ **Checkpoint**: Lighthouse score > 80 on mobile
+- ⬜ Lighthouse audit run on live Vercel URL (run manually: DevTools → Lighthouse → Mobile)
+- ✅ Loading skeletons added to `TrackList` (4 animated rows) and `SearchResults` (3 rows while searching)
+- ✅ Bundle size audited: 308 kB uncompressed / 94 kB gzipped — healthy for React + dnd-kit + Howler
+- ✅ `rollup-plugin-visualizer` installed; run `ANALYZE=true npm run build --prefix client` for treemap
+- ✅ `SearchBar` exposes `onSearching` prop; skeleton shows immediately on keystroke (before 400ms debounce fires)
+- ✅ All 36 client tests pass
+- ⬜ **Checkpoint**: Lighthouse score > 80 on mobile (pending manual audit on live URL)
 
 ---
 

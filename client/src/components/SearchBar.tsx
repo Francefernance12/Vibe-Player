@@ -3,9 +3,10 @@ import { SearchTrack } from '../types'
 
 interface Props {
   onResults: (results: SearchTrack[]) => void
+  onSearching?: (loading: boolean) => void
 }
 
-export function SearchBar({ onResults }: Props) {
+export function SearchBar({ onResults, onSearching }: Props) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -13,10 +14,11 @@ export function SearchBar({ onResults }: Props) {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!query.trim()) { onResults([]); setError(null); return }
+    if (!query.trim()) { onResults([]); setError(null); onSearching?.(false); return }
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
+      onSearching?.(true)
       setError(null)
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
@@ -30,6 +32,7 @@ export function SearchBar({ onResults }: Props) {
         onResults([])
       } finally {
         setLoading(false)
+        onSearching?.(false)
       }
     }, 400)
 

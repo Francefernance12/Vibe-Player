@@ -28,6 +28,22 @@ function makeSyntheticTrack(result: SearchTrack): Track {
   }
 }
 
+function TrackListSkeleton() {
+  return (
+    <ul className="divide-y divide-[#1e1e21]">
+      {[0, 1, 2, 3].map(i => (
+        <li key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
+          <div className="w-1.5 h-1.5 rounded-full bg-zinc-800 flex-shrink-0" />
+          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+            <div className="h-3 bg-zinc-800 rounded w-3/5" />
+            <div className="h-2.5 bg-zinc-800/60 rounded w-1/4" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function Player() {
   const { user, logout } = useAuth()
   const [tracks, setTracks] = useState<Track[]>([])
@@ -35,6 +51,7 @@ function Player() {
   const [searchResults, setSearchResults] = useState<SearchTrack[]>([])
   const [filterText, setFilterText] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('default')
+  const [searching, setSearching] = useState(false)
 
   const player = usePlayer(tracks)
 
@@ -113,8 +130,8 @@ function Player() {
 
         {/* Search */}
         <div className="relative">
-          <SearchBar onResults={setSearchResults} />
-          <SearchResults results={searchResults} tracks={tracks} onSelect={handleSearchSelect} onAddToTracks={handleAddDeezerToTracks} />
+          <SearchBar onResults={setSearchResults} onSearching={setSearching} />
+          <SearchResults results={searchResults} tracks={tracks} loading={searching} onSelect={handleSearchSelect} onAddToTracks={handleAddDeezerToTracks} />
         </div>
 
         <PlaylistPanel onPlay={handlePlaylistPlay} currentTrack={player.currentTrack} />
@@ -146,7 +163,7 @@ function Player() {
             </select>
           </div>
           {loading ? (
-            <p className="text-zinc-600 text-sm p-4 text-center">Loading tracks…</p>
+            <TrackListSkeleton />
           ) : (
             <TrackList
               tracks={visibleTracks}
