@@ -140,14 +140,19 @@ Wrap-up
 
 ---
 
-Session 2D — UI Polish ⬜ OPTIONAL
+Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
-Only if 2C is fully clean.
-
-
-⬜ Distinct play-preview vs add-to-playlist buttons in SearchResults
-⬜ Now-playing animated indicator in PlaylistPanel (if not done in 2C)
-⬜ Update docs/PLANCHECKLIST.md, commit, run /commitReview
+- ✅ PlaylistContext rewritten for multi-playlist support (`playlists:v2` storage key)
+- ✅ `createPlaylist(name): string` added; `addLocal` now requires `playlistId`; `addDeezer` always targets favorites
+- ✅ `PlaylistPanel` rewritten: collapsible accordion per playlist, chevron toggle, track count badge
+- ✅ "New playlist" inline input with `create` button and Escape-to-cancel
+- ✅ DndContext scoped per-playlist accordion section
+- ✅ Currently-playing item highlighted with orange dot + animated pulse
+- ✅ `TrackList` updated: inline playlist picker expands below each row (grid-rows animation)
+- ✅ Picker shows all playlists with orange checkmark for already-added ones
+- ✅ `SearchResults` updated: `playlists.some(...)` instead of stale `items` reference
+- ✅ All tests updated for new multi-playlist API: 42 tests pass (11 server + 31 client)
+- ✅ Update docs/PLANCHECKLIST.md and docs/DECISIONS.md
 
 ---
 

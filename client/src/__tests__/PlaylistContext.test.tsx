@@ -1,8 +1,9 @@
 import { render, act } from '@testing-library/react'
-import { PlaylistProvider, usePlaylist } from '../contexts/PlaylistContext'
+import { PlaylistProvider, usePlaylist, DEFAULT_PLAYLIST_ID } from '../contexts/PlaylistContext'
 import { Track, SearchTrack } from '../types'
 
 const LOCAL_TRACK: Track = { id: 't1', filename: 'a.mp3', originalName: 'Alpha.mp3', mimeType: 'audio/mpeg', size: 1000, source: 'sample' }
+const TRACK2: Track = { ...LOCAL_TRACK, id: 't2', filename: 'b.mp3', originalName: 'Beta.mp3' }
 const DEEZER_TRACK: SearchTrack = { id: 'd1', title: 'Creep', artist: 'Radiohead', albumArt: null, previewUrl: null, durationMs: 239000, source: 'deezer' }
 
 function Harness({ fn }: { fn: (ctx: ReturnType<typeof usePlaylist>) => void }) {
@@ -17,60 +18,77 @@ function setup(fn: (ctx: ReturnType<typeof usePlaylist>) => void) {
 
 beforeEach(() => localStorage.clear())
 
-test('starts empty', () => {
+test('starts with Favorites playlist', () => {
   let ctx!: ReturnType<typeof usePlaylist>
   setup(c => { ctx = c })
-  expect(ctx.items).toHaveLength(0)
+  expect(ctx.playlists).toHaveLength(1)
+  expect(ctx.playlists[0].name).toBe('Favorites')
+  expect(ctx.playlists[0].id).toBe(DEFAULT_PLAYLIST_ID)
+  expect(ctx.playlists[0].items).toHaveLength(0)
 })
 
-test('addLocal adds a local track', () => {
+test('addLocal adds a local track to specified playlist', () => {
   let ctx!: ReturnType<typeof usePlaylist>
   setup(c => { ctx = c })
-  act(() => ctx.addLocal(LOCAL_TRACK))
-  expect(ctx.items).toHaveLength(1)
-  expect(ctx.items[0].kind).toBe('local')
+  act(() => ctx.addLocal(LOCAL_TRACK, DEFAULT_PLAYLIST_ID))
+  expect(ctx.playlists[0].items).toHaveLength(1)
+  expect(ctx.playlists[0].items[0].kind).toBe('local')
 })
 
 test('addLocal does not duplicate', () => {
   let ctx!: ReturnType<typeof usePlaylist>
   setup(c => { ctx = c })
-  act(() => { ctx.addLocal(LOCAL_TRACK); ctx.addLocal(LOCAL_TRACK) })
-  expect(ctx.items).toHaveLength(1)
+  act(() => { ctx.addLocal(LOCAL_TRACK, DEFAULT_PLAYLIST_ID); ctx.addLocal(LOCAL_TRACK, DEFAULT_PLAYLIST_ID) })
+  expect(ctx.playlists[0].items).toHaveLength(1)
 })
 
-test('addDeezer adds a Deezer track', () => {
+test('addDeezer adds a Deezer track to Favorites', () => {
   let ctx!: ReturnType<typeof usePlaylist>
   setup(c => { ctx = c })
   act(() => ctx.addDeezer(DEEZER_TRACK))
-  expect(ctx.items).toHaveLength(1)
-  expect(ctx.items[0].kind).toBe('deezer')
+  expect(ctx.playlists[0].items).toHaveLength(1)
+  expect(ctx.playlists[0].items[0].kind).toBe('deezer')
 })
 
-test('remove removes by id', () => {
+test('removeFromPlaylist removes by id', () => {
   let ctx!: ReturnType<typeof usePlaylist>
   setup(c => { ctx = c })
-  act(() => ctx.addLocal(LOCAL_TRACK))
-  act(() => ctx.remove('t1'))
-  expect(ctx.items).toHaveLength(0)
+  act(() => ctx.addLocal(LOCAL_TRACK, DEFAULT_PLAYLIST_ID))
+  act(() => ctx.removeFromPlaylist('t1', DEFAULT_PLAYLIST_ID))
+  expect(ctx.playlists[0].items).toHaveLength(0)
 })
 
-test('reorder moves item to new index', () => {
+test('reorderPlaylist moves item to new index', () => {
   let ctx!: ReturnType<typeof usePlaylist>
-  const TRACK2: Track = { ...LOCAL_TRACK, id: 't2', filename: 'b.mp3', originalName: 'Beta.mp3' }
   setup(c => { ctx = c })
-  act(() => { ctx.addLocal(LOCAL_TRACK); ctx.addLocal(TRACK2) })
-  act(() => ctx.reorder(0, 1))
-  expect(ctx.items[0].track.id).toBe('t2')
-  expect(ctx.items[1].track.id).toBe('t1')
+  act(() => { ctx.addLocal(LOCAL_TRACK, DEFAULT_PLAYLIST_ID); ctx.addLocal(TRACK2, DEFAULT_PLAYLIST_ID) })
+  act(() => ctx.reorderPlaylist(DEFAULT_PLAYLIST_ID, 0, 1))
+  expect(ctx.playlists[0].items[0].track.id).toBe('t2')
+  expect(ctx.playlists[0].items[1].track.id).toBe('t1')
+})
+
+test('isInPlaylist returns correct boolean', () => {
+  let ctx!: ReturnType<typeof usePlaylist>
+  setup(c => { ctx = c })
+  act(() => ctx.addLocal(LOCAL_TRACK, DEFAULT_PLAYLIST_ID))
+  expect(ctx.isInPlaylist('t1', DEFAULT_PLAYLIST_ID)).toBe(true)
+  expect(ctx.isInPlaylist('t2', DEFAULT_PLAYLIST_ID)).toBe(false)
+})
+
+test('createPlaylist adds a new playlist', () => {
+  let ctx!: ReturnType<typeof usePlaylist>
+  setup(c => { ctx = c })
+  act(() => { ctx.createPlaylist('My Mix') })
+  expect(ctx.playlists).toHaveLength(2)
+  expect(ctx.playlists[1].name).toBe('My Mix')
 })
 
 test('persists to localStorage and reloads', () => {
   let ctx!: ReturnType<typeof usePlaylist>
   setup(c => { ctx = c })
-  act(() => ctx.addLocal(LOCAL_TRACK))
+  act(() => ctx.addLocal(LOCAL_TRACK, DEFAULT_PLAYLIST_ID))
 
-  // Second mount reads from storage
   let ctx2!: ReturnType<typeof usePlaylist>
   setup(c => { ctx2 = c })
-  expect(ctx2.items).toHaveLength(1)
+  expect(ctx2.playlists[0].items).toHaveLength(1)
 })

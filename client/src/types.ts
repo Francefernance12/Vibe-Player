@@ -4,7 +4,7 @@ export interface Track {
   originalName: string
   mimeType: string
   size: number
-  source: 'sample' | 'upload'
+  source: 'sample' | 'upload' | 'deezer'
   externalUrl?: string
 }
 
