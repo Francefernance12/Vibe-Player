@@ -73,9 +73,6 @@ async function createPlaylistApi(name: string, id: string): Promise<{ id: string
   return res.json()
 }
 
-async function deletePlaylistApi(id: string): Promise<void> {
-  await fetch(`/api/playlists/${id}`, { method: 'DELETE', credentials: 'include' })
-}
 
 const PlaylistContext = createContext<PlaylistContextValue | null>(null)
 
