@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
+import rateLimit from 'express-rate-limit'
 import { v4 as uuidv4 } from 'uuid'
 import { getDb, createUser, getUserByEmail, getUserById } from '../../db/index'
 import { authMiddleware, getJwtSecret } from '../middleware/auth'
@@ -8,6 +9,14 @@ import { authMiddleware, getJwtSecret } from '../middleware/auth'
 const router = Router()
 const BCRYPT_ROUNDS = 12
 const TOKEN_TTL = '7d'
+
+const authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+})
 
 function issueToken(userId: string, email: string): string {
   return jwt.sign({ userId, email }, getJwtSecret(), { expiresIn: TOKEN_TTL })
@@ -23,7 +32,7 @@ function setTokenCookie(res: Response, token: string): void {
 }
 
 // POST /api/auth/register
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', authRateLimit, async (req: Request, res: Response) => {
   const { email, password } = req.body ?? {}
   if (typeof email !== 'string' || typeof password !== 'string') {
     res.status(400).json({ error: 'email and password are required' })
@@ -51,7 +60,7 @@ router.post('/register', async (req: Request, res: Response) => {
 })
 
 // POST /api/auth/login
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', authRateLimit, async (req: Request, res: Response) => {
   const { email, password } = req.body ?? {}
   if (typeof email !== 'string' || typeof password !== 'string') {
     res.status(400).json({ error: 'email and password are required' })

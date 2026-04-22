@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import { runMigrations } from './migrate'
+import type { DbTrackSource } from '../../shared/types'
 
 // --- Types ---
 
@@ -22,7 +23,7 @@ export interface DbPlaylistTrack {
   id: string
   playlist_id: string
   position: number
-  source: 'local' | 'deezer'
+  source: DbTrackSource
   track_data: string  // JSON string
   added_at: string
 }
@@ -31,10 +32,18 @@ export interface DbPlaylistTrack {
 
 let _db: Database.Database | null = null
 
-export function getDb(filePath?: string): Database.Database {
+function resolveDbPath(): string {
+  // Vercel serverless: filesystem is read-only except /tmp
+  if (process.env.VERCEL) return '/tmp/music.db'
+  // Works for both ts-node (server/db/) and tsc output (server/dist/db/)
+  return path.join(__dirname, '..', 'music.db')
+}
+
+export function getDb(): Database.Database {
   if (_db) return _db
-  const dbPath = filePath ?? path.join(__dirname, '..', '..', 'server', 'db', 'music.db')
-  _db = new Database(dbPath)
+  _db = new Database(resolveDbPath())
+  // Must be set on every new connection (not just during migrations)
+  _db.pragma('foreign_keys = ON')
   runMigrations(_db)
   return _db
 }
@@ -92,6 +101,10 @@ export function getTracksByPlaylist(db: Database.Database, playlistId: string): 
   return db.prepare(
     'SELECT * FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC'
   ).all(playlistId) as DbPlaylistTrack[]
+}
+
+export function getPlaylistTrackById(db: Database.Database, id: string): DbPlaylistTrack | null {
+  return (db.prepare('SELECT * FROM playlist_tracks WHERE id = ?').get(id) as DbPlaylistTrack | undefined) ?? null
 }
 
 export function addTrackToPlaylist(

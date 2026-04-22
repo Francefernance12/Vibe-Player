@@ -5,8 +5,6 @@ import path from 'path'
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations')
 
 export function runMigrations(db: Database.Database): void {
-  db.pragma('foreign_keys = ON')
-
   db.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
       filename TEXT PRIMARY KEY,
