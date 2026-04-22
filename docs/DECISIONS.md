@@ -20,6 +20,9 @@ Vercel's Lambda-based runtime has a read-only filesystem except for `/tmp`. Uplo
 ### better-sqlite3 for SQLite (Session 3A)
 Chosen over `sqlite3` (callback-based, no TypeScript types out of the box) and over full ORMs (Prisma, Drizzle — overkill for this scale). `better-sqlite3` is synchronous, which simplifies migration runners and query helpers. Migrations are plain SQL files executed in filename order by a small custom runner (`server/db/migrate.ts`). The `_migrations` table tracks which files have already been applied, making the runner idempotent.
 
+### Session 3B — Auth: bcrypt + jsonwebtoken + httpOnly cookies
+Passwords hashed with `bcrypt` (cost 12). Sessions issued as JWTs stored in `httpOnly; SameSite=lax` cookies — not `localStorage` — to prevent XSS access to tokens. `cookie-parser` middleware reads the cookie server-side. `authMiddleware` in `server/src/middleware/auth.ts` verifies the JWT and attaches `req.user`. Auth tests mock `getDb()` with `createMemoryDb()` via `jest.mock` so no real DB file is touched.
+
 ---
 
 ## Session 2A
