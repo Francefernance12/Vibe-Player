@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
@@ -32,56 +32,60 @@ function setTokenCookie(res: Response, token: string): void {
 }
 
 // POST /api/auth/register
-router.post('/register', authRateLimit, async (req: Request, res: Response) => {
-  const { email, password } = req.body ?? {}
-  if (typeof email !== 'string' || typeof password !== 'string') {
-    res.status(400).json({ error: 'email and password are required' })
-    return
-  }
-  const normalised = email.toLowerCase().trim()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalised)) {
-    res.status(400).json({ error: 'Invalid email format' })
-    return
-  }
-  if (password.length < 8) {
-    res.status(400).json({ error: 'Password must be at least 8 characters' })
-    return
-  }
-  const db = getDb()
-  if (getUserByEmail(db, normalised)) {
-    res.status(409).json({ error: 'Email already registered' })
-    return
-  }
-  const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
-  const user = createUser(db, { id: uuidv4(), email: normalised, password_hash })
-  // Every new user gets a default Favorites playlist
-  createPlaylist(db, { id: uuidv4(), user_id: user.id, name: 'Favorites' })
-  const token = issueToken(user.id, user.email)
-  setTokenCookie(res, token)
-  res.status(201).json({ id: user.id, email: user.email })
+router.post('/register', authRateLimit, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, password } = req.body ?? {}
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      res.status(400).json({ error: 'email and password are required' })
+      return
+    }
+    const normalised = email.toLowerCase().trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalised)) {
+      res.status(400).json({ error: 'Invalid email format' })
+      return
+    }
+    if (password.length < 8) {
+      res.status(400).json({ error: 'Password must be at least 8 characters' })
+      return
+    }
+    const db = getDb()
+    if (getUserByEmail(db, normalised)) {
+      res.status(409).json({ error: 'Email already registered' })
+      return
+    }
+    const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
+    const user = createUser(db, { id: uuidv4(), email: normalised, password_hash })
+    // Every new user gets a default Favorites playlist
+    createPlaylist(db, { id: uuidv4(), user_id: user.id, name: 'Favorites' })
+    const token = issueToken(user.id, user.email)
+    setTokenCookie(res, token)
+    res.status(201).json({ id: user.id, email: user.email })
+  } catch (err) { next(err) }
 })
 
 // POST /api/auth/login
-router.post('/login', authRateLimit, async (req: Request, res: Response) => {
-  const { email, password } = req.body ?? {}
-  if (typeof email !== 'string' || typeof password !== 'string') {
-    res.status(400).json({ error: 'email and password are required' })
-    return
-  }
-  const db = getDb()
-  const user = getUserByEmail(db, email.toLowerCase().trim())
-  if (!user) {
-    res.status(401).json({ error: 'Invalid credentials' })
-    return
-  }
-  const match = await bcrypt.compare(password, user.password_hash)
-  if (!match) {
-    res.status(401).json({ error: 'Invalid credentials' })
-    return
-  }
-  const token = issueToken(user.id, user.email)
-  setTokenCookie(res, token)
-  res.json({ id: user.id, email: user.email })
+router.post('/login', authRateLimit, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, password } = req.body ?? {}
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      res.status(400).json({ error: 'email and password are required' })
+      return
+    }
+    const db = getDb()
+    const user = getUserByEmail(db, email.toLowerCase().trim())
+    if (!user) {
+      res.status(401).json({ error: 'Invalid credentials' })
+      return
+    }
+    const match = await bcrypt.compare(password, user.password_hash)
+    if (!match) {
+      res.status(401).json({ error: 'Invalid credentials' })
+      return
+    }
+    const token = issueToken(user.id, user.email)
+    setTokenCookie(res, token)
+    res.json({ id: user.id, email: user.email })
+  } catch (err) { next(err) }
 })
 
 // POST /api/auth/logout
