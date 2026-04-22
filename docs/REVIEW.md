@@ -426,3 +426,62 @@
 1. **Startup validation for `JWT_SECRET`**: The `api/index.ts` Vercel entry point never calls `getJwtSecret()` at startup. A startup check (e.g., call it once in `api/index.ts`) would surface a missing secret immediately on cold start rather than on the first auth request.
 
 2. **Return specific 500 message in dev**: The error middleware currently returns a generic message in all environments. In development, logging `err.stack` would speed up debugging.
+
+---
+
+## Date: 2026-04-22
+
+## Branch Name: session-3c
+
+## What Changed
+
+18 files changed, 1176 insertions(+), 339 deletions(-)
+
+### Files Modified:
+- `.claude/commands/commitReview.md` - Updated commitReview skill
+- `.claude/settings.local.json` - Local settings
+- `client/src/App.tsx` - App component refactored
+- `client/src/__tests__/AuthForms.test.tsx` - New 81-line auth form tests
+- `client/src/__tests__/PlaylistContext.test.tsx` - Updated playlist context tests
+- `client/src/__tests__/TrackList.test.tsx` - Updated track list tests
+- `client/src/components/LoginPage.tsx` - New login page component
+- `client/src/components/RegisterPage.tsx` - New register page component
+- `client/src/contexts/AuthContext.tsx` - New auth context
+- `client/src/contexts/PlaylistContext.tsx` - Refactored playlist context
+- `docs/DECISIONS.md` - Updated documentation
+- `docs/PLAN.md` - Updated project plan
+- `docs/PLANCHECKLIST.md` - Updated checklist
+- `docs/REVIEW.md` - This review file (appended)
+- `server/src/__tests__/playlists.test.ts` - New 100-line playlist API tests
+- `server/src/app.ts` - Updated Express app
+- `server/src/routes/auth.ts` - Updated auth routes
+- `server/src/routes/playlists.ts` - New 74-line playlists routes
+
+### Summary:
+- Added full authentication flow (register, login, logout, session check)
+- Created LoginPage and RegisterPage components
+- Created AuthContext for React state management
+- Added playlist API routes (GET, POST, DELETE, PUT tracks)
+- Refactored PlaylistContext to sync with API when authenticated
+- Added comprehensive test coverage (auth forms, playlists)
+
+## Issues Spotted
+
+1. **No debounce on playlist reorder sync**: Each drag movement fires `PUT /api/playlists/:id/tracks`. Fast drags trigger many concurrent requests.
+
+2. **Favoritesplaylist lookup by name**: Finding Favorites by name is fragile—renaming breaks Deezer track additions.
+
+3. **No error feedback on API failures**: Playlist creation errors aren't surfaced to users.
+
+4. **Missing loading states**: No loading indicator during initial playlist fetch.
+
+## Suggestions
+
+1. **Debounce playlist track sync**: Add ~500ms debounce on PUT during reorder.
+
+2. **Store Favorites ID in user profile**: Use DB flag or store ID instead of name lookup.
+
+3. **Add toast notifications for API errors**: Surface failures to users.
+
+4. **Add isLoading state to PlaylistContext**: Expose loading state, show spinner in UI.
+
