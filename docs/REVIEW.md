@@ -565,3 +565,56 @@
 
 4. **Test with long track names**: The bottom bar uses `truncate` on track name. Verify that very long track names don't cause layout shift or overflow on small screens (320px).
 
+---
+
+## Date: 2026-04-22
+
+## Branch Name: session-5a (HEAD at 6e938ba)
+
+## What Changed
+
+12 files changed, 688 insertions(+), 597 deletions(-)
+
+### Files Modified:
+- `api/index.ts` — awaits `initDb()` before first request
+- `docs/PLANCHECKLIST.md` — Session 5A marked complete; Turso migration documented
+- `server/db/index.ts` — rewritten for libSQL: async helpers, `Client` replaces `Database`, `initDb()` runs PRAGMA + migrations
+- `server/db/migrate.ts` — async; `runMigrations()` takes `Client`
+- `server/package-lock.json` — 777 lines changed: `better-sqlite3` removed, `@libsql/client` added
+- `server/package.json` — `better-sqlite3` replaced with `@libsql/client`
+- `server/src/__tests__/auth.test.ts` — async test setup: `beforeAll(createMemoryDb + initDb)`
+- `server/src/__tests__/db.test.ts` — all helpers awaited; `beforeEach(createMemoryDb + initDb)`
+- `server/src/__tests__/playlists.test.ts` — async test setup
+- `server/src/index.ts` — calls `initDb()` before `app.listen()`
+- `server/src/routes/auth.ts` — all DB calls awaited; `/me` handler wrapped in try/catch
+- `server/src/routes/playlists.ts` — all handlers async + try/catch; DB calls awaited
+
+### Summary:
+- Root cause: Vercel `/tmp` SQLite DB is ephemeral per serverless invocation — register writes user in one container, login runs in a new container and can't find user
+- Solution: migrate from `better-sqlite3` (local file) to `@libsql/client` (remote Turso database for persistent storage)
+- All DB helpers converted to async
+- Migrations rewritten for async API
+- Tests updated: use in-memory libSQL client, call `initDb(db)` in `beforeAll`/`beforeEach`
+- Production env vars added to Vercel: `TURSO_URL`, `TURSO_AUTH_TOKEN`
+- All 42 server tests pass after migration
+
+## Issues Spotted
+
+1. **`api/index.ts` calls `initDb()` on every cold start**: Each serverless invocation runs `initDb()`, which applies PRAGMA and checks migrations. This is safe (migrations table is idempotent) but adds latency. Worth profiling if cold-start time becomes an issue.
+
+2. **`getDb()` singleton uses module-level cache**: The libSQL `Client` is cached in `_db` at module level. Under Vercel's execution model, this cache persists for the lifetime of a warm container. If Turso connection times out, `_db` will hold a stale client. No retry/reconnect logic exists. Consider implementing connection health checks or lazy reconnection.
+
+3. **No transaction support in `replacePlaylistTracks`**: The helper deletes all tracks then inserts new ones in separate queries. If the second query fails (network issue, timeout), the playlist ends up empty. libSQL supports transactions — wrapping the operation in `BEGIN`/`COMMIT` would prevent partial state.
+
+4. **Test isolation uses `:memory:` client per test**: `createMemoryDb()` returns a fresh in-memory client. This is correct and fast, but the `:memory:` URL creates a new isolated DB per client. Multiple concurrent calls to `createMemoryDb()` are safe (each test gets its own DB).
+
+## Suggestions
+
+1. **Add connection retry to `getDb()`**: If a query fails with a connection error, clear `_db` and retry once. This would prevent serverless functions from hanging on stale clients after idle periods.
+
+2. **Wrap `replacePlaylistTracks` in a transaction**: Use `db.batch()` (libSQL batch API) or explicit `BEGIN`/`COMMIT` to ensure atomic delete + insert. This prevents data loss on partial failures.
+
+3. **Extract `resolveDbUrl()` to `.env` check at startup**: The function reads `TURSO_URL` at runtime. If missing in production, it falls back to `file:./music.db`, which will fail on Vercel (read-only filesystem). Add an explicit startup check in `initDb()` or `api/index.ts` to fail fast with a clear error message if `TURSO_URL` is missing in production.
+
+4. **Document Turso URL format in `.env_example`**: Add a comment to `.env_example` showing the expected Turso URL format (e.g., `libsql://[your-db].turso.io`) and link to Turso docs for obtaining auth tokens.
+
