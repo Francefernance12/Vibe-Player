@@ -158,23 +158,21 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ## Phase 3 — Authentication + Database
 
-### Session 3A — Schema Update + SQLite Setup
+### Session 3A — Schema Update + SQLite Setup ✅ COMPLETE
 
-> Before writing any code, update `docs/DATABASE_SCHEMA.md` to replace
-> `'spotify'` with `'deezer'` in the source enum and track JSON shapes.
-
-- ⬜ `docs/DATABASE_SCHEMA.md` updated: source enum changed to `'local' | 'deezer'`
-- ⬜ Deezer track JSON shape documented in schema
-- ⬜ `better-sqlite3` installed
-- ⬜ `/server/db/migrations/` directory created
-- ⬜ `001_create_users.sql` written from schema
-- ⬜ `002_create_playlists.sql` written from schema
-- ⬜ `003_create_playlist_tracks.sql` written from schema
-- ⬜ Migration runner (`migrate.ts`) implemented
-- ⬜ `db/index.ts` query helper module written with full TypeScript types
-- ⬜ All DB operations tested with in-memory SQLite
-- ⬜ All tests pass
-- ⬜ **Checkpoint**: All DB tests pass with `:memory:` database
+- ✅ `docs/DATABASE_SCHEMA.md` updated: source enum `'local' | 'deezer'`, Spotify/YouTube references removed
+- ✅ Deezer track JSON shape documented in schema
+- ✅ `better-sqlite3` + `@types/better-sqlite3` installed in `/server`
+- ✅ `/server/db/migrations/` directory created
+- ✅ `001_create_users.sql` written from schema
+- ✅ `002_create_playlists.sql` written from schema
+- ✅ `003_create_playlist_tracks.sql` written from schema
+- ✅ Migration runner (`server/db/migrate.ts`) — idempotent, tracks applied migrations in `_migrations` table
+- ✅ `server/db/index.ts` — typed query helpers: users (CRUD), playlists (CRUD), playlist_tracks (add/remove/replace)
+- ✅ `createMemoryDb()` helper for isolated test databases
+- ✅ 11 DB tests in `server/src/__tests__/db.test.ts` — all pass with `:memory:`
+- ✅ All tests pass: 22 server tests (11 original + 11 DB)
+- ✅ **Checkpoint**: All DB tests pass with `:memory:` database
 
 ---
 

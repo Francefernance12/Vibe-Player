@@ -17,8 +17,8 @@ Chosen over nodemon + ts-node for faster incremental rebuilds via transpile-only
 ### Vercel serverless: /tmp for uploads, process.cwd() for samples
 Vercel's Lambda-based runtime has a read-only filesystem except for `/tmp`. Uploaded files are written to `/tmp` in production (ephemeral — cleared between invocations). Sample MP3s are bundled with the function via `vercel.json` `includeFiles` and accessed via `process.cwd()/server/samples`. Local dev continues to use `__dirname`-relative paths. This is a Phase 1 limitation; persistent upload storage (S3/Cloudflare R2) is a Phase 4 backlog item.
 
-### better-sqlite3 (deferred to Phase 3)
-Will be added in Session 3A. Not needed for Phase 1.
+### better-sqlite3 for SQLite (Session 3A)
+Chosen over `sqlite3` (callback-based, no TypeScript types out of the box) and over full ORMs (Prisma, Drizzle — overkill for this scale). `better-sqlite3` is synchronous, which simplifies migration runners and query helpers. Migrations are plain SQL files executed in filename order by a small custom runner (`server/db/migrate.ts`). The `_migrations` table tracks which files have already been applied, making the runner idempotent.
 
 ---
 
