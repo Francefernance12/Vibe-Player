@@ -194,6 +194,11 @@ function AuthGate() {
   const { user, loading } = useAuth()
   const [showRegister, setShowRegister] = useState(false)
 
+  // Reset to login page whenever the user logs out
+  useEffect(() => {
+    if (!user && !loading) setShowRegister(false)
+  }, [user, loading])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
