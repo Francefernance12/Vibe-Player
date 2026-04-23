@@ -151,6 +151,24 @@ Migrations and the `PRAGMA foreign_keys = ON` call are async and must be awaited
 
 ---
 
+## Phase 5 — Feature Additions
+
+### Session 5B — Upload Persistence
+
+**Vercel Blob over ephemeral `/tmp` for uploaded files**
+`multer.diskStorage` wrote to `/tmp` on Vercel, which is cleared between container invocations — uploaded tracks would 404 after a cold start or from a different device. Replaced with `@vercel/blob`: `put()` uploads the file buffer directly to Vercel's CDN and returns a permanent public URL. The blob URL is stored in a new Turso table (`uploaded_tracks`) keyed by `user_id`, so each user's uploads persist across sessions and devices. Sample tracks continue to be served from the bundled filesystem via the streaming endpoint.
+
+**Multer memoryStorage instead of diskStorage**
+With Vercel Blob, files never need to touch the local filesystem. Switching to `multer.memoryStorage()` puts the file bytes in `req.file.buffer`, which is passed directly to `put()`. This also removes the `/tmp` dependency entirely — no `IS_VERCEL` branching needed in the upload path.
+
+**Upload route requires auth; DELETE uses track ID (not filename)**
+Uploaded tracks are associated with a `user_id` in Turso, so the upload endpoint now requires a valid JWT cookie. The delete endpoint was changed from `/:filename` to `/:id`, using the Turso-generated UUID as the stable identifier. The client was updated to call `DELETE /api/tracks/${track.id}`. Ownership is checked server-side before deleting.
+
+**GET /api/tracks is auth-aware (not auth-required)**
+Unauthenticated requests return sample tracks only. Authenticated requests append the user's uploaded tracks (with `externalUrl` set to the blob URL). The player's existing `externalUrl` handling in `usePlayer` covers blob URLs without any client-side changes.
+
+---
+
 ## AI Workflow & Tooling
 
 **Claude Code (claude CLI) as primary development agent**

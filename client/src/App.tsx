@@ -137,7 +137,7 @@ function Player() {
 
   const handleDeleteTrack = useCallback(async (track: Track) => {
     if (track.source === 'upload') {
-      await fetch(`/api/tracks/${encodeURIComponent(track.filename)}`, { method: 'DELETE' })
+      await fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
     }
     setTracks(prev => prev.filter(t => t.filename !== track.filename))
     if (player.currentTrack?.filename === track.filename) player.stop()
