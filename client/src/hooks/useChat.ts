@@ -83,7 +83,7 @@ export function useChat({ trackName, library, playlists, onAction }: UseChatOpti
       if (action && onAction) {
         const feedback = onAction(action)
         if (feedback) {
-          setMessages(prev => [...prev, { role: 'assistant' as const, content: feedback, kind: 'action' }].slice(-20))
+          setMessages(prev => [...prev, { role: 'assistant' as const, content: feedback, kind: 'action' as const }].slice(-20))
         }
       }
     } catch {
