@@ -2,7 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { PlayerBar } from '../components/PlayerBar'
 
+const mockTrack = {
+  id: 'test-id', filename: 'test.mp3', originalName: 'Test Track.mp3',
+  mimeType: 'audio/mpeg', size: 1_048_576, source: 'upload' as const,
+}
+
 const baseProps = {
+  currentTrack: null,
   nowPlayingName: null,
   isPlaying: false,
   hasTrack: false,
@@ -28,7 +34,7 @@ describe('PlayerBar', () => {
   })
 
   it('shows track name when playing', () => {
-    render(<PlayerBar {...baseProps} nowPlayingName="Test Track" hasTrack />)
+    render(<PlayerBar {...baseProps} currentTrack={mockTrack} nowPlayingName="Test Track" hasTrack />)
     expect(screen.getByText('Test Track')).toBeTruthy()
   })
 

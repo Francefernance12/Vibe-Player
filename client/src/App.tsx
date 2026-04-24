@@ -259,6 +259,7 @@ function Player() {
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col items-center justify-start py-10 px-4 pb-28">
       <PlayerBar
+        currentTrack={player.currentTrack}
         nowPlayingName={nowPlayingName}
         isPlaying={player.isPlaying}
         hasTrack={player.currentTrack !== null}
