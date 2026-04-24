@@ -307,7 +307,7 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 - ✅ `client/src/components/ChatWindow.tsx` — slide-in panel, message list, input, loading dots
 - ✅ `client/src/App.tsx` — mount ChatBubble + ChatWindow, pass `nowPlayingName`
 - ✅ 41 client + 49 server tests pass
-- ⬜ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
+- ✅ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
 - ⬜ **Checkpoint**: Click bubble → chat opens; ask about a song → response < 2s; 6th msg/min → 429
 
 ---
