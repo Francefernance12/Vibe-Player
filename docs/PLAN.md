@@ -277,6 +277,49 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 
 ---
 
+## Phase 6 — Playback Modes, Layout Overhaul, Cascade Delete, Extended Chat
+
+### Session 6A — Player Enhancements ⬜ NOT STARTED
+
+**Goals**: Shuffle, loop modes (track / queue), autoplay-next, and play-context (navigate within library or a specific playlist independently).
+
+**Key approach**: `useRef` for `shuffleRef`, `loopModeRef`, and `queueRef` so Howl's `onend` closure always sees latest values. `play(track, context?)` sets the queue on each play call.
+
+**Loop modes**: `none` (stop at end) → `track` (restart current) → `queue` (wrap to first) — cycled by a single button.
+
+**Files**: `client/src/hooks/usePlayer.ts`, `client/src/App.tsx`
+
+**Checkpoint**: Shuffle → next is random within queue; loop-track restarts; loop-queue wraps; playlist track → next/prev stays within that playlist.
+
+---
+
+### Session 6B — Desktop Layout Overhaul ⬜ NOT STARTED
+
+**Goals**: Unified `PlayerBar` always visible at bottom (replaces `MobilePlayerBar` + embedded desktop card). Two tabs — Library (search/upload/tracks) and Playlists — in the main content area.
+
+**PlayerBar additions**: Shuffle button (orange when active), Loop cycle button, VolumeControl (desktop only).
+
+**Files**: `client/src/components/PlayerBar.tsx` (renamed), `client/src/App.tsx`
+
+**Checkpoint**: Desktop shows tabs; player bar always visible; shuffle/loop buttons work; VolumeControl present on desktop.
+
+---
+
+### Session 6C — Cascade Delete + Extended Chat Actions ⬜ NOT STARTED
+
+**Cascade delete**: `removeTrackFromAllPlaylists(trackId)` added to `PlaylistContext`. Called from `handleDeleteTrack` — track disappears from every playlist it was in.
+
+**New chat action types** (6 additions):
+- `pause`, `resume`, `skip`, `prev` — direct player controls
+- `set_volume` — e.g. `{ type: "set_volume", level: "0.5" }`
+- `search_and_play` — fetches `/api/search?q=...`, plays first result with `previewUrl`
+
+**Files**: `client/src/contexts/PlaylistContext.tsx`, `client/src/App.tsx`, `server/src/routes/chat.ts`
+
+**Checkpoint**: Delete library track → removed from all playlists; chat pause/skip/volume/search-and-play all work with confirmation messages.
+
+---
+
 ## Quick Reference
 
 ```bash

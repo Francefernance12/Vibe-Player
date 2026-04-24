@@ -217,3 +217,37 @@ Rather than adding a separate quota-tracking table, total usage is `SUM(size)` o
 
 **`StorageBar` UI placement**
 Placed below `FileUpload` so the user sees remaining space immediately before choosing a file. Refreshed via `useQuota()` hook after every upload and delete so the bar stays accurate without polling.
+
+---
+
+## Phase 6 — Playback Modes, Layout, Cascade Delete
+
+### Session 6A — Player Enhancements (planned)
+
+**`useRef` for Howl closure state (shuffle / loopMode / queue)**
+Howl's `onend` callback is captured in a closure when the `Howl` is created. If shuffle/loopMode/queue were plain `useState` values, the closure would see stale values from the render cycle when `play()` was last called. Using `useRef` for these values lets the closure always read the latest state without re-creating the Howl on every toggle. A separate `useState` mirrors each ref purely for triggering re-renders (button active states).
+
+**Play context as a separate queue ref**
+Rather than always navigating the full library on next/prev, `play(track, context?)` optionally sets `queueRef` to a caller-supplied list (e.g., a playlist's items, or the current filtered library view). This cleanly separates "what is playing" from "what queue is being navigated", enabling shuffle to work independently within either context without mixing library and playlist tracks.
+
+**Loop mode cycle: none → track → queue**
+Three modes rather than a binary toggle. `none` = stop at end. `track` = restart current song (Howl seek(0)). `queue` = wrap from last to first. Cycled with a single button to avoid UI clutter. The mode is displayed as a changing icon (→ / 🔂 / 🔁).
+
+### Session 6B — Desktop Layout (planned)
+
+**Unified PlayerBar replaces MobilePlayerBar + desktop card**
+The mobile fixed bottom bar (`sm:hidden`) and the desktop embedded player card (`hidden sm:flex`) are replaced by a single `PlayerBar` component always visible at the bottom. This follows standard music player conventions (Spotify, Apple Music) and eliminates the inconsistency of having two different player UIs. Shuffle and loop buttons are added to this bar.
+
+**Tabs (Library | Playlists) on desktop**
+Separates upload/search/library actions from playlist management — previously everything was stacked vertically, making the page long and hard to navigate with many playlists. Tabs are client-side state only (no routing) to keep the app single-page without React Router.
+
+### Session 6C — Cascade Delete + Chat Actions (planned)
+
+**Cascade delete via `removeTrackFromAllPlaylists` in PlaylistContext**
+When a track is deleted from the library, it should disappear from all playlists. Previously, playlist items became orphaned (stored as `{ kind: 'local', track }` references with no validity check at play time). The cascade function filters all playlist items in one pass and syncs to the backend, keeping playlists consistent without a server-side foreign key (playlist items are stored as JSON blobs, not relational rows).
+
+**Chat action expansion: 6 new types**
+Added `pause`, `resume`, `skip`, `prev`, `set_volume`, and `search_and_play` to the assistant's action vocabulary. `search_and_play` is the most complex: it fetches `/api/search?q=...` on the client and plays the first result with a `previewUrl` — combining the existing search and play flows. Volume is passed as a float string (`"0.7"`) since all action payloads are strings in the JSON schema.
+
+**Model: `llama-3.3-70b-versatile` (upgraded from 8B in Session 5E)**
+Switched from `llama-3.1-8b-instant` to `llama-3.3-70b-versatile` for reliably following structured action tag instructions. Still on Groq free tier. The larger model is necessary as the action vocabulary grows — a 6-rule prompt with placeholders is too complex for an 8B model to follow consistently.
