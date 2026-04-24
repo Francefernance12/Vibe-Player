@@ -17,6 +17,8 @@ import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
 import { ChatBubble } from './components/ChatBubble'
 import { ChatWindow } from './components/ChatWindow'
+import { StorageBar } from './components/StorageBar'
+import { useQuota } from './hooks/useQuota'
 import { filterAndSortTracks, SortOption } from './utils/trackFilter'
 
 function makeSyntheticTrack(result: SearchTrack): Track {
@@ -102,6 +104,7 @@ function Player() {
   const [sortOption, setSortOption] = useState<SortOption>('default')
   const [searching, setSearching] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const { quota, refresh: refreshQuota } = useQuota()
 
   const player = usePlayer(tracks)
 
@@ -115,7 +118,8 @@ function Player() {
 
   const handleUploaded = useCallback((track: Track) => {
     setTracks(prev => [...prev, track])
-  }, [])
+    refreshQuota()
+  }, [refreshQuota])
 
   const handleSelect = useCallback((track: Track) => { player.play(track) }, [player])
 
@@ -141,10 +145,11 @@ function Player() {
   const handleDeleteTrack = useCallback(async (track: Track) => {
     if (track.source === 'upload') {
       await fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+      refreshQuota()
     }
     setTracks(prev => prev.filter(t => t.filename !== track.filename))
     if (player.currentTrack?.filename === track.filename) player.stop()
-  }, [player])
+  }, [player, refreshQuota])
 
   const visibleTracks = useMemo(
     () => filterAndSortTracks(tracks, filterText, sortOption),
@@ -199,6 +204,8 @@ function Player() {
         <PlaylistPanel onPlay={handlePlaylistPlay} currentTrack={player.currentTrack} />
 
         <FileUpload onUploaded={handleUploaded} />
+
+        {quota && <StorageBar used={quota.used} limit={quota.limit} tier={quota.tier} />}
 
         {/* Track list */}
         <div className="bg-[#111113] border border-[#1e1e21] rounded-2xl overflow-hidden">

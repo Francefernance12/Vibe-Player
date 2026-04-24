@@ -12,14 +12,18 @@ import {
   getUploadedTracksByUser,
   getUploadedTrackById,
   deleteUploadedTrack,
+  getUserUploadedBytes,
 } from '../../db';
 import { authMiddleware, AuthPayload, getJwtSecret } from '../middleware/auth';
 import { Track } from '../../../shared/types';
 
 const router = Router();
 
+const FREE_QUOTA_BYTES = 100 * 1024 * 1024; // 100MB
+
 const upload = multer({
   storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (AUDIO_MIME[ext]) return cb(null, true);
@@ -71,6 +75,17 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: Reques
     return;
   }
   try {
+    const db = getDb();
+    const used = await getUserUploadedBytes(db, req.user!.userId);
+    if (used + req.file.size > FREE_QUOTA_BYTES) {
+      res.status(413).json({
+        error: `Storage quota exceeded. You have used ${Math.round(used / 1024 / 1024)} MB of your ${Math.round(FREE_QUOTA_BYTES / 1024 / 1024)} MB limit.`,
+        used,
+        limit: FREE_QUOTA_BYTES,
+      });
+      return;
+    }
+
     const ext = path.extname(req.file.originalname).toLowerCase();
     const mimeType = AUDIO_MIME[ext] ?? req.file.mimetype;
     const filename = `${Date.now()}-${req.file.originalname}`;
@@ -81,7 +96,6 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: Reques
     });
 
     const id = uuidv4();
-    const db = getDb();
     await createUploadedTrack(db, {
       id,
       user_id: req.user!.userId,

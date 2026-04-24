@@ -201,3 +201,19 @@ Rate limiting per authenticated user rather than per IP avoids false-positives o
 
 **`role: 'assistant' as const` in useChat spread**
 TypeScript widens object literal property values to `string` when spread into an array. Spreading `{ role: 'assistant' }` produces `role: string`, which is incompatible with the `ChatMessage` union `'user' | 'assistant'`. Adding `as const` to the role preserves the literal type and satisfies the state setter's type constraint. Applied to all three `setMessages` call sites in `useChat`.
+
+---
+
+## Phase 5 — Session 5D — Upload Limits + Quota
+
+**50MB multer file size limit**
+Default multer memoryStorage has no file size cap. Files over the Express default body limit (or Vercel's 4.5MB Hobby cap) return 413 with no clear message. Setting `limits: { fileSize: 50 * 1024 * 1024 }` makes multer reject oversized files with a consistent 413 and an error message before buffering the entire body. Chosen over a lower cap to give free-tier users headroom for lossless audio files.
+
+**Vercel Hobby body size constraint**
+Vercel Hobby plan caps serverless function request bodies at 4.5MB regardless of multer config. Files over 4.5MB will 413 at the Vercel edge in production on Hobby. Documented as a known constraint rather than worked around — upgrading to Vercel Pro raises this limit to 500MB.
+
+**Per-user quota computed from `uploaded_tracks.size`**
+Rather than adding a separate quota-tracking table, total usage is `SUM(size)` over `uploaded_tracks WHERE user_id = ?`. This stays in sync automatically on upload and delete without extra write paths. A constant `FREE_QUOTA_BYTES = 100 * 1024 * 1024` (100MB) represents the free tier. Tier is a string enum (`'free'`) returned from the quota endpoint, making it easy to add paid tiers later without a DB migration.
+
+**`StorageBar` UI placement**
+Placed below `FileUpload` so the user sees remaining space immediately before choosing a file. Refreshed via `useQuota()` hook after every upload and delete so the bar stays accurate without polling.

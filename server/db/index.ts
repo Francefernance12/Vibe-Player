@@ -176,6 +176,14 @@ export async function deleteUploadedTrack(db: Client, id: string): Promise<void>
   await db.execute({ sql: 'DELETE FROM uploaded_tracks WHERE id = ?', args: [id] })
 }
 
+export async function getUserUploadedBytes(db: Client, userId: string): Promise<number> {
+  const { rows } = await db.execute({
+    sql: 'SELECT COALESCE(SUM(size), 0) AS total FROM uploaded_tracks WHERE user_id = ?',
+    args: [userId],
+  })
+  return Number(rows[0].total)
+}
+
 // --- Playlist tracks ---
 
 export async function getTracksByPlaylist(db: Client, playlistId: string): Promise<DbPlaylistTrack[]> {
