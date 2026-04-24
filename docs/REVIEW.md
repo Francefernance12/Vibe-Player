@@ -807,3 +807,40 @@ None additional beyond those noted in the prior session-5c review.
 - Raise chat rate limit to 8 req/min to account for 70B model latency.
 - Add `useChat.test.ts` with unit tests for `extractAction` covering: clean JSON, backtick-wrapped JSON, code-fence-wrapped JSON, missing action tag, malformed JSON.
 - Add a `'No action' | string` union return from `handleChatAction` and surface a brief inline error if the track/playlist wasn't found (currently silently shows "Track not found." which may be missed).
+
+---
+
+## Date: 2026-04-24
+
+## Branch Name: session-6b
+
+## What Changed
+
+**Session 6A — Player Enhancements**
+- `usePlayer.ts` rewritten: `shuffleRef`, `loopModeRef`, `queueRef`, `currentTrackRef`, `volumeRef` added as refs so Howl's `onend` closure always sees current values without stale captures.
+- `play(track, context?)` sets the active queue; falls back to `libraryTracks` on first play without a context.
+- `onend` auto-advances: `loopMode === 'track'` restarts, shuffle picks a random pool entry, linear picks next index, `loopMode === 'queue'` wraps to `queue[0]`, otherwise stops.
+- `next()`/`prev()` navigate within `queueRef` (respecting shuffle on next).
+- `toggleShuffle()` and `cycleLoop()` sync refs + useState for re-renders.
+- `PlaylistPanel.tsx` `onPlay` signature updated to `(item, playlistItems)` so App can build the playlist queue context.
+
+**Session 6B — Desktop Layout + Unified PlayerBar**
+- New `PlayerBar.tsx`: always-visible fixed bottom bar replacing both `MobilePlayerBar` and the hidden desktop card. Constrained to `max-w-md mx-auto` to match content width. Shuffle (orange when active) + Loop buttons (with "1" badge when looping track). VolumeControl desktop-only. Swipe gestures preserved.
+- `App.tsx`: Library / Playlists tab switcher added below wordmark. Library tab: search, upload, quota bar, tracklist. Playlists tab: `PlaylistPanel`. Padding adjusted to `pb-28` for all viewports.
+
+**Bug Fix**
+- `visibleTracks` `useMemo` was referenced in `handleSelect`'s deps before its declaration (temporal dead zone crash on mount). Fixed by hoisting the `useMemo` above the callbacks.
+
+## Issues Spotted
+
+1. **No `usePlayer` tests** — The hook is now significantly more complex (queue logic, shuffle, loop modes, `onend` branching) but has no unit tests. Howler makes this hard to mock, but a happy-path test for `toggleShuffle`/`cycleLoop` state changes would catch regressions.
+2. **Shuffle on `next()` vs `onend` diverge slightly** — Manual `next()` with shuffle picks from `pool` excluding current; `onend` shuffle does the same but reads `currentTrackRef` which may lag by one render if play hasn't settled. Low risk in practice.
+3. **Tab state lost on re-render edge cases** — Switching to Playlists tab hides the search container, so `searchResults` accumulate invisibly. They clear on next search but a stale result set could appear if the user tabs back. Consider clearing `searchResults` on tab switch.
+4. **`playInternalRef.current = createAndPlay` assigned during render** — Safe (synchronous, before any event), but could be moved into a `useEffect` to be strictly correct. Not a bug in practice.
+
+## Suggestions
+
+- Add `onTabChange` callback that clears `searchResults` when leaving Library tab.
+- Consider exposing `queueRef.current.length` so the UI can show "X tracks in queue".
+- The "1" badge on the loop button is 7px text in a 10px circle — may be too small on low-DPI screens. Consider an outlined "1" or a different visual cue.
+- Session 6C (cascade delete + extended chat actions) is the natural next step and closes the remaining player control gap in the chat assistant.
