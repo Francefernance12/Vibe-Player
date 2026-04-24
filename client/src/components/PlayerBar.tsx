@@ -65,9 +65,9 @@ export function PlayerBar({
   return (
     <div
       {...swipeHandlers}
-      className="fixed bottom-0 left-0 right-0 z-40 bg-[#111113] border-t border-[#1e1e21]"
+      className="fixed bottom-0 left-0 right-0 z-40 flex justify-center px-4"
     >
-      <div className="max-w-md mx-auto">
+      <div className="w-full max-w-md bg-[#111113] border-t border-x border-[#1e1e21] rounded-t-2xl">
       <div className="px-4 pt-2.5">
         <ProgressBar isPlaying={isPlaying} getDuration={getDuration} getSeek={getSeek} onSeek={onSeek} />
       </div>

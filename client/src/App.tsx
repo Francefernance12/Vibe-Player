@@ -19,6 +19,21 @@ import { StorageBar } from './components/StorageBar'
 import { useQuota } from './hooks/useQuota'
 import { filterAndSortTracks, SortOption } from './utils/trackFilter'
 
+const DEEZER_TRACKS_KEY = 'deezer-library-tracks'
+
+function loadDeezerTracks(): Track[] {
+  try {
+    const raw = localStorage.getItem(DEEZER_TRACKS_KEY)
+    return raw ? (JSON.parse(raw) as Track[]) : []
+  } catch { return [] }
+}
+
+function saveDeezerTracks(tracks: Track[]) {
+  try {
+    localStorage.setItem(DEEZER_TRACKS_KEY, JSON.stringify(tracks.filter(t => t.source === 'deezer')))
+  } catch { /* quota */ }
+}
+
 function makeSyntheticTrack(result: SearchTrack): Track {
   return {
     id: result.id,
@@ -114,7 +129,7 @@ function Player() {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'library' | 'playlists'>('library')
   const { quota, refresh: refreshQuota } = useQuota()
-  const { playlists, addLocal, defaultPlaylistId } = usePlaylist()
+  const { playlists, addLocal, defaultPlaylistId, removeTrackFromAllPlaylists } = usePlaylist()
   const searchContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -130,9 +145,16 @@ function Player() {
   const player = usePlayer(tracks)
 
   useEffect(() => {
+    const deezerTracks = loadDeezerTracks()
     fetch('/api/tracks')
       .then(r => r.json())
-      .then((data: Track[]) => setTracks(data))
+      .then((data: Track[]) => {
+        const merged = [...data]
+        for (const dt of deezerTracks) {
+          if (!merged.some(t => t.id === dt.id)) merged.push(dt)
+        }
+        setTracks(merged)
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -171,7 +193,12 @@ function Player() {
 
   const handleAddDeezerToTracks = useCallback((result: SearchTrack) => {
     const track = makeSyntheticTrack(result)
-    setTracks(prev => prev.some(t => t.id === track.id) ? prev : [...prev, track])
+    setTracks(prev => {
+      if (prev.some(t => t.id === track.id)) return prev
+      const next = [...prev, track]
+      saveDeezerTracks(next)
+      return next
+    })
   }, [])
 
   const handleDeleteTrack = useCallback(async (track: Track) => {
@@ -179,9 +206,14 @@ function Player() {
       await fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
       refreshQuota()
     }
-    setTracks(prev => prev.filter(t => t.filename !== track.filename))
+    setTracks(prev => {
+      const next = prev.filter(t => t.filename !== track.filename)
+      saveDeezerTracks(next)
+      return next
+    })
+    removeTrackFromAllPlaylists(track.id)
     if (player.currentTrack?.filename === track.filename) player.stop()
-  }, [player, refreshQuota])
+  }, [player, refreshQuota, removeTrackFromAllPlaylists])
 
   const library = useMemo(
     () => tracks.map(t => ({ id: t.id, name: t.originalName.replace(/\.[^.]+$/, '') })).slice(0, 40),
