@@ -19,7 +19,7 @@ describe('GET /api/tracks', () => {
 
 describe('GET /api/tracks/:filename/stream', () => {
   it('returns a response with audio Content-Type for a sample file', async () => {
-    const res = await request(app).get('/api/tracks/sample1.mp3/stream');
+    const res = await request(app).get('/api/tracks/MusicSample.mp3/stream');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/audio/);
   });

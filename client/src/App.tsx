@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSwipeable } from 'react-swipeable'
 import { Track, SearchTrack } from './types'
 import { usePlayer } from './hooks/usePlayer'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { PlaylistProvider } from './contexts/PlaylistContext'
+import { PlaylistProvider, usePlaylist } from './contexts/PlaylistContext'
 import { PlaylistItem } from './contexts/PlaylistContext'
+import { ChatAction } from './hooks/useChat'
 import { TrackList } from './components/TrackList'
 import { PlayerControls } from './components/PlayerControls'
 import { ProgressBar } from './components/ProgressBar'
@@ -95,6 +96,61 @@ function TrackListSkeleton() {
   )
 }
 
+const SORT_LABELS: Record<SortOption, string> = {
+  default: 'Default',
+  az: 'A–Z',
+  za: 'Z–A',
+  sizeAsc: 'Size ↑',
+  sizeDesc: 'Size ↓',
+  source: 'Source',
+}
+
+function SortSelect({ value, onChange }: { value: SortOption; onChange: (v: SortOption) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+        aria-label="Sort tracks"
+      >
+        {SORT_LABELS[value]}
+        <svg viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}>
+          <path d="M4 6l4 4 4-4H4z" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-[#111113] border border-[#1e1e21] rounded-xl overflow-hidden shadow-xl shadow-black/60 min-w-[5.5rem]">
+          {(Object.keys(SORT_LABELS) as SortOption[]).map(opt => (
+            <button
+              key={opt}
+              onClick={() => { onChange(opt); setOpen(false) }}
+              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                value === opt
+                  ? 'text-orange-400 bg-orange-500/10'
+                  : 'text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.05]'
+              }`}
+            >
+              {SORT_LABELS[opt]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Player() {
   const { user, logout } = useAuth()
   const [tracks, setTracks] = useState<Track[]>([])
@@ -105,6 +161,18 @@ function Player() {
   const [searching, setSearching] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const { quota, refresh: refreshQuota } = useQuota()
+  const { playlists, addLocal, defaultPlaylistId } = usePlaylist()
+  const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setSearchResults([])
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const player = usePlayer(tracks)
 
@@ -156,6 +224,32 @@ function Player() {
     [tracks, filterText, sortOption]
   )
 
+  const library = useMemo(
+    () => tracks.map(t => ({ id: t.id, name: t.originalName.replace(/\.[^.]+$/, '') })).slice(0, 40),
+    [tracks]
+  )
+
+  const playlistSummaries = useMemo(
+    () => playlists.map(p => ({ id: p.id, name: p.name })),
+    [playlists]
+  )
+
+  const handleChatAction = useCallback((action: ChatAction) => {
+    if (action.type === 'play') {
+      const track = tracks.find(t => t.id === action.trackId)
+      if (track) player.play(track)
+    } else if (action.type === 'search') {
+      if (!action.query) return
+      fetch(`/api/search?q=${encodeURIComponent(action.query)}`)
+        .then(r => r.json())
+        .then((data: SearchTrack[]) => { if (Array.isArray(data)) setSearchResults(data) })
+        .catch(console.error)
+    } else if (action.type === 'add_to_playlist') {
+      const track = tracks.find(t => t.id === action.trackId)
+      if (track) addLocal(track, action.playlistId ?? defaultPlaylistId)
+    }
+  }, [tracks, player, addLocal, defaultPlaylistId])
+
   const nowPlayingName = player.currentTrack
     ? player.currentTrack.originalName.replace(/\.[^.]+$/, '')
     : null
@@ -196,7 +290,11 @@ function Player() {
         </div>
 
         {/* Search */}
-        <div className="relative">
+        <div
+          className="relative"
+          ref={searchContainerRef}
+          onKeyDown={e => { if (e.key === 'Escape') setSearchResults([]) }}
+        >
           <SearchBar onResults={setSearchResults} onSearching={setSearching} />
           <SearchResults results={searchResults} tracks={tracks} loading={searching} onSelect={handleSearchSelect} onAddToTracks={handleAddDeezerToTracks} />
         </div>
@@ -217,19 +315,7 @@ function Player() {
               onChange={e => setFilterText(e.target.value)}
               className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
             />
-            <select
-              value={sortOption}
-              onChange={e => setSortOption(e.target.value as SortOption)}
-              className="bg-transparent text-xs text-zinc-500 outline-none cursor-pointer hover:text-zinc-300 transition-colors"
-              aria-label="Sort tracks"
-            >
-              <option value="default">Default</option>
-              <option value="az">A–Z</option>
-              <option value="za">Z–A</option>
-              <option value="sizeAsc">Size ↑</option>
-              <option value="sizeDesc">Size ↓</option>
-              <option value="source">Source</option>
-            </select>
+            <SortSelect value={sortOption} onChange={setSortOption} />
           </div>
           {loading ? (
             <TrackListSkeleton />
@@ -274,7 +360,14 @@ function Player() {
       </div>
 
       <ChatBubble isOpen={isChatOpen} onToggle={() => setIsChatOpen(o => !o)} />
-      <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} trackName={nowPlayingName} />
+      <ChatWindow
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        trackName={nowPlayingName}
+        library={library}
+        playlists={playlistSummaries}
+        onAction={handleChatAction}
+      />
     </div>
   )
 }
