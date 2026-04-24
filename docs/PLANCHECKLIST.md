@@ -308,6 +308,7 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 - ✅ `client/src/App.tsx` — mount ChatBubble + ChatWindow, pass `nowPlayingName`
 - ✅ 41 client + 49 server tests pass
 - ✅ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
+- ✅ TS fix: `role: 'assistant' as const` in `useChat` spread (widening caused type error on Vercel build)
 - ⬜ **Checkpoint**: Click bubble → chat opens; ask about a song → response < 2s; 6th msg/min → 429
 
 ---

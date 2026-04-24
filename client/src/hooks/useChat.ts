@@ -25,15 +25,15 @@ export function useChat(trackName?: string | null) {
       })
 
       if (res.status === 429) {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Rate limit reached — try again in a minute.' }].slice(-20))
+        setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Rate limit reached — try again in a minute.' }].slice(-20))
         return
       }
       if (!res.ok) throw new Error('Request failed')
 
       const { reply } = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }].slice(-20))
+      setMessages(prev => [...prev, { role: 'assistant' as const, content: reply }].slice(-20))
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Try again.' }].slice(-20))
+      setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Something went wrong. Try again.' }].slice(-20))
     } finally {
       setIsLoading(false)
     }

@@ -188,3 +188,16 @@ Generates high-quality, production-grade UI code with a distinct visual style. A
 
 **vercel-react-best-practices skill**
 A curated set of Vercel engineering rules (re-render avoidance, ref-based transient values, memoization, bundle hygiene). Consulted before writing any React component. The ProgressBar's ref-based tick update is a direct result of this skill's `rerender-use-ref-transient-values` rule.
+
+---
+
+## Phase 5 — Session 5C — AI Chatbot
+
+**Groq + `llama-3.1-8b-instant`**
+Free-tier inference at ~750 tok/s. Chosen over OpenRouter for simpler integration (official `groq-sdk`), no credit card required on free tier, and adequate speed without streaming.
+
+**`express-rate-limit` keyed on `req.user.userId`**
+Rate limiting per authenticated user rather than per IP avoids false-positives on shared IPs (offices, NAT). Auth middleware runs before the limiter so `req.user` is always populated by the time the key is generated. `validate: { xForwardedForHeader: false }` suppresses a spurious IPv6 warning on Vercel.
+
+**`role: 'assistant' as const` in useChat spread**
+TypeScript widens object literal property values to `string` when spread into an array. Spreading `{ role: 'assistant' }` produces `role: string`, which is incompatible with the `ChatMessage` union `'user' | 'assistant'`. Adding `as const` to the role preserves the literal type and satisfies the state setter's type constraint. Applied to all three `setMessages` call sites in `useChat`.
