@@ -285,7 +285,7 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ### Session 5B — Upload Persistence (Vercel Blob)
 
-- ⬜ Vercel Blob store created in dashboard; `BLOB_READ_WRITE_TOKEN` added to Vercel env vars + local `.env`
+- ✅ Vercel Blob store created in dashboard; `BLOB_READ_WRITE_TOKEN` added to Vercel env vars + local `.env`
 - ✅ `@vercel/blob` installed in `/server`
 - ✅ `server/db/migrations/004_create_uploaded_tracks.sql` — new table: `id, user_id, filename, original_name, mime_type, size, blob_url, created_at`
 - ✅ `server/db/index.ts` — add `createUploadedTrack`, `getUploadedTracksByUser`, `getUploadedTrackById`, `deleteUploadedTrack`
@@ -299,14 +299,15 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 ### Session 5C — AI Music Assistant Chatbot (Groq)
 
 - ⬜ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
-- ⬜ `groq-sdk` installed in `/server`
-- ⬜ `POST /api/chat` endpoint — auth-protected, rate-limited (5 req/min per user), calls Groq `llama-3.1-8b-instant`
-- ⬜ `server/src/__tests__/chat.test.ts` — 401 without auth, 200 with reply, 429 on rate limit
-- ⬜ `client/src/hooks/useChat.ts` — messages state, `sendMessage`, rolling 20-message cap
-- ⬜ `client/src/components/ChatBubble.tsx` — fixed orange button, bottom-right, clears mobile bar
-- ⬜ `client/src/components/ChatWindow.tsx` — slide-in panel, message list, input, loading dots
-- ⬜ `client/src/App.tsx` — mount ChatBubble + ChatWindow, pass `nowPlayingName`
-- ⬜ All client + server tests pass
+- ✅ `groq-sdk` installed in `/server`
+- ✅ `POST /api/chat` endpoint — auth-protected, rate-limited (5 req/min per user), calls Groq `llama-3.1-8b-instant`
+- ✅ `server/src/__tests__/chat.test.ts` — 401 without auth, 200 with reply, 429 on rate limit
+- ✅ `client/src/hooks/useChat.ts` — messages state, `sendMessage`, rolling 20-message cap
+- ✅ `client/src/components/ChatBubble.tsx` — fixed orange button, bottom-right, clears mobile bar
+- ✅ `client/src/components/ChatWindow.tsx` — slide-in panel, message list, input, loading dots
+- ✅ `client/src/App.tsx` — mount ChatBubble + ChatWindow, pass `nowPlayingName`
+- ✅ 41 client + 49 server tests pass
+- ⬜ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
 - ⬜ **Checkpoint**: Click bubble → chat opens; ask about a song → response < 2s; 6th msg/min → 429
 
 ---
