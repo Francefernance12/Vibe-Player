@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useSwipeable } from 'react-swipeable'
 import { Track, SearchTrack } from './types'
 import { usePlayer } from './hooks/usePlayer'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
@@ -7,13 +6,11 @@ import { PlaylistProvider, usePlaylist } from './contexts/PlaylistContext'
 import { PlaylistItem } from './contexts/PlaylistContext'
 import { ChatAction } from './hooks/useChat'
 import { TrackList } from './components/TrackList'
-import { PlayerControls } from './components/PlayerControls'
-import { ProgressBar } from './components/ProgressBar'
-import { VolumeControl } from './components/VolumeControl'
 import { FileUpload } from './components/FileUpload'
 import { SearchBar } from './components/SearchBar'
 import { SearchResults } from './components/SearchResults'
 import { PlaylistPanel } from './components/PlaylistPanel'
+import { PlayerBar } from './components/PlayerBar'
 import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
 import { ChatBubble } from './components/ChatBubble'
@@ -34,51 +31,6 @@ function makeSyntheticTrack(result: SearchTrack): Track {
   }
 }
 
-interface MobilePlayerBarProps {
-  nowPlayingName: string | null
-  isPlaying: boolean
-  hasTrack: boolean
-  onPlay: () => void
-  onPause: () => void
-  onNext: () => void
-  onPrev: () => void
-  getDuration: () => number
-  getSeek: () => number
-  onSeek: (ratio: number) => void
-}
-
-function MobilePlayerBar({ nowPlayingName, isPlaying, hasTrack, onPlay, onPause, onNext, onPrev, getDuration, getSeek, onSeek }: MobilePlayerBarProps) {
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => { if (hasTrack) onNext() },
-    onSwipedRight: () => { if (hasTrack) onPrev() },
-    trackMouse: false,
-    preventScrollOnSwipe: true,
-  })
-
-  return (
-    <div
-      {...swipeHandlers}
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#111113] border-t border-[#1e1e21]"
-    >
-      <div className="px-4 pt-3">
-        <ProgressBar isPlaying={isPlaying} getDuration={getDuration} getSeek={getSeek} onSeek={onSeek} />
-      </div>
-      <div className="flex items-center justify-between px-4 py-2">
-        <p className="flex-1 text-sm font-medium text-zinc-100 truncate mr-4 min-w-0">
-          {nowPlayingName ?? <span className="text-zinc-600 font-normal">Select a track</span>}
-        </p>
-        <PlayerControls
-          isPlaying={isPlaying}
-          hasTrack={hasTrack}
-          onPlay={onPlay}
-          onPause={onPause}
-          onNext={onNext}
-          onPrev={onPrev}
-        />
-      </div>
-    </div>
-  )
-}
 
 function TrackListSkeleton() {
   return (
@@ -160,6 +112,7 @@ function Player() {
   const [sortOption, setSortOption] = useState<SortOption>('default')
   const [searching, setSearching] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'library' | 'playlists'>('library')
   const { quota, refresh: refreshQuota } = useQuota()
   const { playlists, addLocal, defaultPlaylistId } = usePlaylist()
   const searchContainerRef = useRef<HTMLDivElement>(null)
@@ -184,24 +137,35 @@ function Player() {
       .finally(() => setLoading(false))
   }, [])
 
+  const visibleTracks = useMemo(
+    () => filterAndSortTracks(tracks, filterText, sortOption),
+    [tracks, filterText, sortOption]
+  )
+
   const handleUploaded = useCallback((track: Track) => {
     setTracks(prev => [...prev, track])
     refreshQuota()
   }, [refreshQuota])
 
-  const handleSelect = useCallback((track: Track) => { player.play(track) }, [player])
+  const handleSelect = useCallback((track: Track) => {
+    player.play(track, visibleTracks)
+  }, [player, visibleTracks])
 
   const handleSearchSelect = useCallback((result: SearchTrack) => {
     if (!result.previewUrl) return
     player.play(makeSyntheticTrack(result))
   }, [player])
 
-  const handlePlaylistPlay = useCallback((item: PlaylistItem) => {
+  const handlePlaylistPlay = useCallback((item: PlaylistItem, playlistItems: PlaylistItem[]) => {
+    const queue = playlistItems.flatMap(i => {
+      if (i.kind === 'local') return [i.track]
+      return i.track.previewUrl ? [makeSyntheticTrack(i.track)] : []
+    })
     if (item.kind === 'local') {
-      player.play(item.track)
+      player.play(item.track, queue)
     } else {
       if (!item.track.previewUrl) return
-      player.play(makeSyntheticTrack(item.track))
+      player.play(makeSyntheticTrack(item.track), queue)
     }
   }, [player])
 
@@ -218,11 +182,6 @@ function Player() {
     setTracks(prev => prev.filter(t => t.filename !== track.filename))
     if (player.currentTrack?.filename === track.filename) player.stop()
   }, [player, refreshQuota])
-
-  const visibleTracks = useMemo(
-    () => filterAndSortTracks(tracks, filterText, sortOption),
-    [tracks, filterText, sortOption]
-  )
 
   const library = useMemo(
     () => tracks.map(t => ({ id: t.id, name: t.originalName.replace(/\.[^.]+$/, '') })).slice(0, 40),
@@ -266,8 +225,8 @@ function Player() {
     : null
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col items-center justify-start py-10 px-4 pb-32 sm:pb-10">
-      <MobilePlayerBar
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col items-center justify-start py-10 px-4 pb-28">
+      <PlayerBar
         nowPlayingName={nowPlayingName}
         isPlaying={player.isPlaying}
         hasTrack={player.currentTrack !== null}
@@ -278,6 +237,12 @@ function Player() {
         getDuration={player.getDuration}
         getSeek={player.getSeek}
         onSeek={player.seek}
+        shuffle={player.shuffle}
+        loopMode={player.loopMode}
+        onToggleShuffle={player.toggleShuffle}
+        onCycleLoop={player.cycleLoop}
+        volume={player.volume}
+        onVolumeChange={player.setVolume}
       />
       <div className="w-full max-w-md flex flex-col gap-3">
 
@@ -300,73 +265,70 @@ function Player() {
           )}
         </div>
 
-        {/* Search */}
-        <div
-          className="relative"
-          ref={searchContainerRef}
-          onKeyDown={e => { if (e.key === 'Escape') setSearchResults([]) }}
-        >
-          <SearchBar onResults={setSearchResults} onSearching={setSearching} />
-          <SearchResults results={searchResults} tracks={tracks} loading={searching} onSelect={handleSearchSelect} onAddToTracks={handleAddDeezerToTracks} />
+        {/* Tab switcher */}
+        <div className="flex gap-5 border-b border-[#1e1e21]">
+          {(['library', 'playlists'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`text-[10px] font-mono uppercase tracking-widest pb-2 border-b-2 transition-colors ${
+                activeTab === tab
+                  ? 'text-zinc-200 border-orange-500'
+                  : 'text-zinc-600 border-transparent hover:text-zinc-400'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
-        <PlaylistPanel onPlay={handlePlaylistPlay} currentTrack={player.currentTrack} />
+        {/* Library tab */}
+        {activeTab === 'library' && (
+          <>
+            {/* Search */}
+            <div
+              className="relative"
+              ref={searchContainerRef}
+              onKeyDown={e => { if (e.key === 'Escape') setSearchResults([]) }}
+            >
+              <SearchBar onResults={setSearchResults} onSearching={setSearching} />
+              <SearchResults results={searchResults} tracks={tracks} loading={searching} onSelect={handleSearchSelect} onAddToTracks={handleAddDeezerToTracks} />
+            </div>
 
-        <FileUpload onUploaded={handleUploaded} />
+            <FileUpload onUploaded={handleUploaded} />
 
-        {quota && <StorageBar used={quota.used} limit={quota.limit} tier={quota.tier} />}
+            {quota && <StorageBar used={quota.used} limit={quota.limit} tier={quota.tier} />}
 
-        {/* Track list */}
-        <div className="bg-[#111113] border border-[#1e1e21] rounded-2xl overflow-hidden">
-          <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-[#1e1e21]">
-            <input
-              type="text"
-              placeholder="Filter tracks…"
-              value={filterText}
-              onChange={e => setFilterText(e.target.value)}
-              className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
-            />
-            <SortSelect value={sortOption} onChange={setSortOption} />
-          </div>
-          {loading ? (
-            <TrackListSkeleton />
-          ) : (
-            <TrackList
-              tracks={visibleTracks}
-              currentTrack={player.currentTrack}
-              onSelect={handleSelect}
-              onDelete={handleDeleteTrack}
-            />
-          )}
-        </div>
+            {/* Track list */}
+            <div className="bg-[#111113] border border-[#1e1e21] rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-[#1e1e21]">
+                <input
+                  type="text"
+                  placeholder="Filter tracks…"
+                  value={filterText}
+                  onChange={e => setFilterText(e.target.value)}
+                  className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
+                />
+                <SortSelect value={sortOption} onChange={setSortOption} />
+              </div>
+              {loading ? (
+                <TrackListSkeleton />
+              ) : (
+                <TrackList
+                  tracks={visibleTracks}
+                  currentTrack={player.currentTrack}
+                  onSelect={handleSelect}
+                  onDelete={handleDeleteTrack}
+                />
+              )}
+            </div>
+          </>
+        )}
 
-        {/* Player — hidden on mobile (uses fixed bottom bar instead) */}
-        <div className="hidden sm:flex bg-[#111113] border border-[#1e1e21] rounded-2xl p-4 flex-col gap-3">
-          <div className="min-h-[1.25rem]">
-            {nowPlayingName ? (
-              <p className="text-sm font-medium text-zinc-100 truncate">{nowPlayingName}</p>
-            ) : (
-              <p className="text-sm text-zinc-600">Select a track to play</p>
-            )}
-          </div>
-          <ProgressBar
-            isPlaying={player.isPlaying}
-            getDuration={player.getDuration}
-            getSeek={player.getSeek}
-            onSeek={player.seek}
-          />
-          <div className="flex items-center justify-between">
-            <PlayerControls
-              isPlaying={player.isPlaying}
-              hasTrack={player.currentTrack !== null}
-              onPlay={player.resume}
-              onPause={player.pause}
-              onNext={player.next}
-              onPrev={player.prev}
-            />
-            <VolumeControl volume={player.volume} onVolumeChange={player.setVolume} />
-          </div>
-        </div>
+        {/* Playlists tab */}
+        {activeTab === 'playlists' && (
+          <PlaylistPanel onPlay={handlePlaylistPlay} currentTrack={player.currentTrack} />
+        )}
 
       </div>
 

@@ -333,6 +333,47 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ---
 
+## Phase 6 — Playback Modes, Layout Overhaul, Cascade Delete, Extended Chat
+
+### Session 6A — Player Enhancements ⬜ NOT STARTED
+
+- ⬜ `usePlayer.ts` — add `shuffleRef`, `loopModeRef`, `queueRef` (all useRef for Howl closure access)
+- ⬜ `usePlayer.ts` — `play(track, context?)` sets queueRef if context provided
+- ⬜ `usePlayer.ts` — `toggleShuffle()` and `cycleLoop()` controls exposed
+- ⬜ `usePlayer.ts` — `onend` auto-advances: respects shuffle, loopMode, wraps on queue loop
+- ⬜ `client/src/App.tsx` — library track click passes `visibleTracks` as context to `player.play`
+- ⬜ `client/src/App.tsx` — playlist track click passes playlist items as context to `player.play`
+- ⬜ All client tests pass
+- ⬜ **Checkpoint**: Shuffle button → next track is random within queue; loop cycles correctly
+
+---
+
+### Session 6B — Desktop Layout Overhaul ⬜ NOT STARTED
+
+- ⬜ `client/src/components/PlayerBar.tsx` — rename from MobilePlayerBar; remove `sm:hidden`
+- ⬜ `PlayerBar` — add Shuffle button (orange when active) and Loop cycle button
+- ⬜ `PlayerBar` — add VolumeControl (visible `sm:flex`, hidden on mobile)
+- ⬜ `client/src/App.tsx` — add `activeTab: 'library' | 'playlists'` state
+- ⬜ `client/src/App.tsx` — Library tab: SearchBar, FileUpload, StorageBar, TrackList
+- ⬜ `client/src/App.tsx` — Playlists tab: PlaylistPanel
+- ⬜ `client/src/App.tsx` — remove `hidden sm:flex` embedded player card
+- ⬜ `client/src/App.tsx` — update body padding `pb-28` (was `pb-32 sm:pb-10`)
+- ⬜ All client tests pass
+- ⬜ **Checkpoint**: Desktop shows tabs; PlayerBar always visible; shuffle/loop buttons present
+
+---
+
+### Session 6C — Cascade Delete + Extended Chat Actions ⬜ NOT STARTED
+
+- ⬜ `client/src/contexts/PlaylistContext.tsx` — add `removeTrackFromAllPlaylists(trackId)` + expose via `usePlaylist()`
+- ⬜ `client/src/App.tsx` — `handleDeleteTrack` calls `removeTrackFromAllPlaylists(track.id)`
+- ⬜ `server/src/routes/chat.ts` — add 6 new action rules: pause, resume, skip, prev, set_volume, search_and_play
+- ⬜ `client/src/App.tsx` — `handleChatAction` handles all 6 new action types
+- ⬜ All server + client tests pass
+- ⬜ **Checkpoint**: Delete library track → removed from all playlists; chat pause/skip/volume work; "find and play jazz" plays Deezer preview
+
+---
+
 ## Agent Review Log
 
 | Session | Date | Findings | Resolved |

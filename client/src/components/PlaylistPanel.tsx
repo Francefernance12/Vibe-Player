@@ -17,7 +17,7 @@ import { Track } from '../types'
 import { usePlaylist, PlaylistItem, Playlist } from '../contexts/PlaylistContext'
 
 interface Props {
-  onPlay: (item: PlaylistItem) => void
+  onPlay: (item: PlaylistItem, playlistItems: PlaylistItem[]) => void
   currentTrack: Track | null
 }
 
@@ -127,7 +127,7 @@ function PlaylistSection({
   playlist: Playlist
   expanded: boolean
   onToggle: () => void
-  onPlay: (item: PlaylistItem) => void
+  onPlay: (item: PlaylistItem, playlistItems: PlaylistItem[]) => void
   currentTrack: Track | null
 }) {
   const { removeFromPlaylist, reorderPlaylist } = usePlaylist()
@@ -171,7 +171,7 @@ function PlaylistSection({
                       key={itemId(item)}
                       item={item}
                       active={isActive(item, currentTrack)}
-                      onPlay={() => onPlay(item)}
+                      onPlay={() => onPlay(item, playlist.items)}
                       onRemove={() => removeFromPlaylist(itemId(item), playlist.id)}
                     />
                   ))}
