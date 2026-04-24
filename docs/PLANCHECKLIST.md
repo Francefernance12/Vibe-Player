@@ -313,6 +313,26 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ---
 
+### Session 5D — Upload Size Limit + Per-User Quota UI
+
+- ✅ `server/src/routes/tracks.ts` — multer `limits: { fileSize: 50MB }`; quota check before `put()`
+- ✅ `server/db/index.ts` — `getUserUploadedBytes(db, userId)` helper (SUM of size)
+- ✅ `server/src/routes/quota.ts` — `GET /api/user/quota` → `{ used, limit, tier }`
+- ✅ `server/src/app.ts` — register `/api/quota` route; multer LIMIT_FILE_SIZE → 413 in error handler
+- ✅ `server/src/__tests__/quota.test.ts` — 401 without auth, 200 with correct shape
+- ✅ `server/src/__tests__/tracks.test.ts` — upload rejected when quota exceeded
+- ✅ `client/src/hooks/useQuota.ts` — fetches quota, exposes used/limit/tier/refresh
+- ✅ `client/src/components/StorageBar.tsx` — tier badge + progress bar; orange at 90%+
+- ✅ `client/src/__tests__/StorageBar.test.tsx` — renders bar, tier label, correct %
+- ✅ `client/src/App.tsx` — mount `StorageBar` below `FileUpload`; refresh after upload/delete
+- ✅ 52 server + 44 client tests pass
+- ⬜ **Checkpoint 1**: Upload 12MB file locally → succeeds
+- ⬜ **Checkpoint 2**: Exceed 100MB quota → upload rejected with clear UI message
+- ⬜ **Checkpoint 3**: StorageBar updates immediately after upload and delete
+- ✅ **Known constraint documented**: Vercel Hobby plan caps function bodies at 4.5MB — files over that limit still 413 in production
+
+---
+
 ## Agent Review Log
 
 | Session | Date | Findings | Resolved |

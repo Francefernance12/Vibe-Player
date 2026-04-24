@@ -684,3 +684,45 @@ None additional beyond those noted in the prior session-5c review.
 
 - Consider defining a helper `assistantMsg(content: string): ChatMessage` to avoid the `as const` pattern at every call site.
 - Add a client-side Vitest snapshot or type-level test (using `satisfies`) to catch this class of regression early.
+
+---
+
+## Date: 2026-04-24
+
+## Branch Name: session-5c (Session 5D work)
+
+## What Changed
+
+27 files changed, 1215 insertions(+), 279 deletions(-) — cumulative diff from main includes all of 5B, 5C, and 5D.
+
+**Session 5D additions in this commit:**
+- `server/src/routes/tracks.ts` — multer `limits: { fileSize: 50MB }`; quota check (SUM of size) before Blob `put()`; 413 with used/limit in body when exceeded
+- `server/src/app.ts` — `multer.MulterError LIMIT_FILE_SIZE` caught in global error handler → 413
+- `server/db/index.ts` — `getUserUploadedBytes()` helper; `rootDir` removed from tsconfig to stop IDE false-positives from `db/` and `shared/` being outside `src/`
+- `server/src/routes/quota.ts` — new: `GET /api/user/quota` → `{ used, limit, tier }`
+- `server/src/__tests__/quota.test.ts` — 401 without auth, 200 with shape check
+- `server/src/__tests__/tracks.test.ts` — quota exceeded → 413
+- `client/src/hooks/useQuota.ts` — fetches on mount, `refresh()` called after upload/delete
+- `client/src/components/StorageBar.tsx` — tier badge, filled progress bar, orange at ≥90%
+- `client/src/__tests__/StorageBar.test.tsx` — renders label, progressbar role, aria-valuenow
+- `client/src/App.tsx` — mounts `StorageBar` below `FileUpload`; `refreshQuota()` wired into `handleUploaded` and `handleDeleteTrack`
+
+**Also fixed this session:**
+- `getUserUploadedBytes` was silently removed by the IDE linter after being added — re-added
+- `server/tsconfig.json` `rootDir: "./src"` caused TS6059 errors for all imports from `../db` and `../../shared` — removed `rootDir` entirely (Vercel builds from source, not from `dist/`)
+
+## Issues Spotted
+
+1. **`FREE_QUOTA_BYTES` is duplicated**: defined independently as `100 * 1024 * 1024` in both `routes/tracks.ts` and `routes/quota.ts`. If the value changes, both must be updated. Extract to a shared constant (e.g., `server/src/config.ts`).
+
+2. **No 413 test for multer file size limit**: the quota-exceeded 413 is tested, but the multer `LIMIT_FILE_SIZE` 413 (files > 50MB) has no test. Add a test that sends an oversized buffer and expects 413 with "File too large".
+
+3. **`useQuota` silently swallows all fetch errors**: if the server is down or returns an unexpected error, `quota` stays `null` and `StorageBar` is simply not rendered — acceptable, but worth noting.
+
+4. **`StorageBar` shows `0.0 MB of 100 MB used` on first login before any uploads** — minor UX: consider showing "No uploads yet" when `used === 0` instead of `0.0 MB`.
+
+## Suggestions
+
+- Extract `FREE_QUOTA_BYTES` to `server/src/config.ts` and import it in both routes.
+- Add a multer file-size 413 test to `tracks.test.ts`.
+- Consider a `session-5d` branch next time to keep PRs scoped to one session's work.

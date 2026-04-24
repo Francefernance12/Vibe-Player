@@ -12,10 +12,12 @@ jest.mock('@vercel/blob', () => ({
 }));
 
 let testDb: Client;
+let mockUsedBytes = 0;
 
 jest.mock('../../db/index', () => ({
   ...jest.requireActual('../../db/index'),
   getDb: () => testDb,
+  getUserUploadedBytes: jest.fn(async () => mockUsedBytes),
 }));
 
 import app from '../app';
@@ -58,6 +60,17 @@ describe('POST /api/tracks/upload', () => {
       externalUrl: BLOB_URL,
     });
     expect(typeof res.body.id).toBe('string');
+  });
+
+  it('returns 413 when user quota is exceeded', async () => {
+    mockUsedBytes = 100 * 1024 * 1024; // at 100MB limit
+    const res = await request(app)
+      .post('/api/tracks/upload')
+      .set('Cookie', authCookie)
+      .attach('file', SAMPLE_MP3);
+    expect(res.status).toBe(413);
+    expect(res.body.error).toMatch(/quota/i);
+    mockUsedBytes = 0;
   });
 });
 

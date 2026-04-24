@@ -229,22 +229,51 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 
 ---
 
-### Session 5C — AI Music Assistant Chatbot ⬜ NEXT
+### Session 5C — AI Music Assistant Chatbot ✅ COMPLETE
 
-**What it does**:
-- Orange bubble button fixed bottom-right (above mobile player bar)
-- Slide-in chat panel from the right
-- Knows the currently playing track name
-- Session history (20-message rolling cap)
-- Rate limited: 5 req/min per authenticated user
+- Orange bubble + slide-in chat panel. Groq `llama-3.1-8b-instant`, auth-protected, 5 req/min rate limit, 20-message rolling history.
 
-**Backend** (`POST /api/chat`): Auth-protected. Calls Groq API (`llama-3.1-8b-instant` — free, ~750 tok/s). Returns `{ reply: string }`.
+---
 
-**User action required**: Sign up at console.groq.com → copy `GROQ_API_KEY` → add to Vercel env vars + local `.env`.
+### Session 5D — Upload Size Limit + Per-User Quota UI ⬜ NEXT
 
-**New files**: `server/src/routes/chat.ts`, `client/src/hooks/useChat.ts`, `client/src/components/ChatBubble.tsx`, `client/src/components/ChatWindow.tsx`
+**Problems**:
+1. Files over ~5MB return 413 — multer has no file size cap set; Vercel Hobby plan caps function bodies at 4.5MB.
+2. No per-user storage cap — a single user could fill the Blob store.
 
-**Checkpoint**: Click bubble → chat opens; ask about a song → reply in < 2s; 6th message/min → 429.
+**Fix 1 — raise the per-file limit**:
+- Set `limits: { fileSize: 50 * 1024 * 1024 }` (50MB) in multer config.
+- Note: Vercel Hobby plan hard-caps request bodies at 4.5MB. The multer fix works locally and on Pro. On Hobby, files over 4.5MB will still 413 at the Vercel edge — document this constraint clearly.
+
+**Fix 2 — per-user quota (free tier = 100MB)**:
+- `getUserUploadedBytes(db, userId)` — `SUM(size)` from `uploaded_tracks`.
+- Quota check in `POST /upload`: if `used + incoming > 100MB` → 413 `{ error, used, limit }`.
+- `GET /api/user/quota` → `{ used: number, limit: number, tier: 'free' }`.
+
+**UI**:
+- `StorageBar` component below `FileUpload`: tier badge ("Free Trial"), filled progress bar, `X MB of 100 MB used`.
+- `useQuota()` hook — fetches on mount, refreshes after each upload or delete.
+
+**Files**:
+
+| File | Change |
+|---|---|
+| `server/src/routes/tracks.ts` | multer 50MB limit; quota check before `put()` |
+| `server/db/index.ts` | `getUserUploadedBytes()` helper |
+| `server/src/routes/quota.ts` | New: `GET /api/user/quota` |
+| `server/src/app.ts` | Register `/api/quota` |
+| `server/src/__tests__/quota.test.ts` | New: 401, 200 with used/limit/tier |
+| `server/src/__tests__/tracks.test.ts` | Add: upload fails when quota exceeded |
+| `client/src/hooks/useQuota.ts` | New: fetches quota, exposes used/limit/tier/refresh |
+| `client/src/components/StorageBar.tsx` | New: tier badge + progress bar |
+| `client/src/__tests__/StorageBar.test.tsx` | New: renders bar, tier label, correct percentage |
+| `client/src/App.tsx` | Mount `StorageBar` below `FileUpload`; pass `onUpload` refresh callback |
+
+**Checkpoint**:
+1. Upload a 12MB file locally → succeeds (multer allows it).
+2. Upload until quota is nearly full → upload rejected with clear message.
+3. `StorageBar` updates immediately after each upload/delete.
+4. On Vercel Hobby: files > 4.5MB still 413 — documented, not a bug.
 
 ---
 
