@@ -763,3 +763,47 @@ None additional beyond those noted in the prior session-5c review.
 - Add a lightweight toast/notification system (`react-hot-toast` or a custom one) so AI-triggered actions give visual confirmation.
 - Move `LIBRARY_LIMIT = 40` to a shared constant used by both App.tsx and chat.ts to keep them in sync.
 - Add a `chat.test.ts` case asserting that `library` and `playlists` appear in the system prompt (mock `buildSystemPrompt` or inspect the groq call args).
+
+---
+
+## Date: 2026-04-24 (continued)
+
+## Branch: session-5c
+
+## What Changed
+
+### AI Action Reliability Fix
+
+**Root causes addressed:**
+1. `llama-3.1-8b-instant` (8B) too weak to reliably follow structured output instructions → switched to `llama-3.3-70b-versatile` (70B, still free on Groq).
+2. System prompt used passive/conditional language and literal placeholder text `"EXACT_ID_FROM_LIBRARY"` that small models copied verbatim → rewrote with numbered `RULE 1/2/3` blocks, `CRITICAL CONSTRAINTS` header, explicit "replace the placeholder" language, and a failure case ("if the track is not in the library, say so in text — do NOT invent an ID").
+3. `extractAction()` silently dropped actions when the model wrapped JSON in backticks or markdown code fences → added pre-parse sanitization to strip both patterns.
+
+**UX improvements:**
+- `onAction` callback now returns `string | void`; confirmed actions are appended to chat as `kind: 'action'` messages, rendered as small centered italic lines (not bubbles).
+- Suggestion chips reworded to unambiguously express intent: `'Play something from my library'`, `'Search for chill jazz'`, `'What is this genre called?'`, `'Add this track to my Favorites'`.
+
+### Bug Fix: Groq 400 on follow-up messages
+`kind: 'action'` messages (UI-only feedback appended locally) were included in the `messages` array sent to the Groq API, which rejects unknown properties. Fixed by filtering to `apiMessages = nextMessages.filter(m => !m.kind).map(({ role, content }) => ({ role, content }))` before the fetch — action feedback messages are display-only and should not enter conversation history.
+
+### Files Changed
+- `server/src/routes/chat.ts` — model `llama-3.1-8b-instant` → `llama-3.3-70b-versatile`; `max_tokens` 512 → 400; `buildSystemPrompt` rewritten with imperative numbered rules
+- `client/src/hooks/useChat.ts` — `extractAction` hardened; `onAction` typed as `(action) => string | void`; `apiMessages` filtered before fetch; `kind: 'action'` messages appended on confirmation
+- `client/src/App.tsx` — `handleChatAction` returns confirmation strings per action type
+- `client/src/components/ChatWindow.tsx` — `kind === 'action'` messages rendered as dim italic; suggestion chips updated
+
+## Issues Spotted
+
+1. **Rate limit still 5 req/min** — the 70B model is slower than 8B; if users have a slow connection and retry quickly they could hit the limit before receiving their first reply. Consider raising to 8–10 req/min now that responses take slightly longer.
+
+2. **`apiMessages` filtering removes action feedback from history** — correct, but also means if the user says "play that again" after an action, the assistant has no memory it triggered the action. Consider keeping a lightweight action log separate from `messages` to pass as context.
+
+3. **`handleChatAction` for `add_to_playlist` uses `playlists` from the outer closure** — if playlists haven't loaded from the server yet (network delay), `playlists.find(...)` returns `undefined` and the confirmation says `'Added to "your playlist".'` instead of the real name. Benign but slightly misleading.
+
+4. **No test coverage for `extractAction` sanitization** — the backtick/code-fence stripping is untested. A unit test for the utility would prevent regressions.
+
+## Suggestions
+
+- Raise chat rate limit to 8 req/min to account for 70B model latency.
+- Add `useChat.test.ts` with unit tests for `extractAction` covering: clean JSON, backtick-wrapped JSON, code-fence-wrapped JSON, missing action tag, malformed JSON.
+- Add a `'No action' | string` union return from `handleChatAction` and surface a brief inline error if the track/playlist wasn't found (currently silently shows "Track not found." which may be missed).

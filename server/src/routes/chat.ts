@@ -35,18 +35,31 @@ interface PlaylistSummary { id: string; name: string }
 
 function buildSystemPrompt(trackName?: string, library?: LibraryTrack[], playlists?: PlaylistSummary[]): string {
   const librarySection = library?.length
-    ? `\n\nUser's music library:\n${library.slice(0, 40).map(t => `- id:${t.id} | ${t.name}`).join('\n')}`
+    ? `\n\nUSER'S MUSIC LIBRARY (${library.length} tracks):\n${library.slice(0, 40).map(t => `  id:${t.id} | ${t.name}`).join('\n')}`
     : ''
 
   const playlistSection = playlists?.length
-    ? `\n\nUser's playlists:\n${playlists.map(p => `- id:${p.id} | ${p.name}`).join('\n')}`
+    ? `\n\nUSER'S PLAYLISTS:\n${playlists.map(p => `  id:${p.id} | ${p.name}`).join('\n')}`
     : ''
 
-  const actionInstructions = `\n\nWhen the user asks to play a track, add a track to a playlist, or search for music, append ONE action tag at the very end of your response:
-Play a library track: <action>{"type":"play","trackId":"EXACT_ID_FROM_LIBRARY"}</action>
-Add to playlist: <action>{"type":"add_to_playlist","trackId":"EXACT_ID_FROM_LIBRARY","playlistId":"EXACT_PLAYLIST_ID"}</action>
-Search Deezer: <action>{"type":"search","query":"search terms"}</action>
-Only include an action when explicitly asked. Never invent IDs — use only exact IDs listed above.`
+  const actionInstructions = `\n\nACTION RULES — read carefully and follow exactly:
+
+When the user's intent is clear, you MUST emit exactly ONE action tag as the very last line of your response. Nothing comes after the action tag.
+
+RULE 1 — User wants to PLAY a track from their library:
+<action>{"type":"play","trackId":"PUT_THE_ACTUAL_ID_HERE"}</action>
+
+RULE 2 — User wants to SEARCH for music (artists, songs, genres, moods):
+<action>{"type":"search","query":"PUT_THE_ACTUAL_SEARCH_TERMS_HERE"}</action>
+
+RULE 3 — User wants to ADD a track to a playlist:
+<action>{"type":"add_to_playlist","trackId":"PUT_THE_ACTUAL_TRACK_ID_HERE","playlistId":"PUT_THE_ACTUAL_PLAYLIST_ID_HERE"}</action>
+
+CRITICAL CONSTRAINTS:
+- Replace the quoted placeholder text with real values from the library/playlist lists above.
+- Do NOT wrap the action tag in backticks, markdown, or code blocks.
+- Do NOT invent track IDs. If the track is not in the library list, say so in plain text and do NOT emit a play/add action.
+- Do NOT emit an action for general questions or recommendations — only when the user explicitly asks to play, search, or add.`
 
   return `You are Vibe, a music assistant built into Vibe Player. Help users discover music, understand artists, explore genres, and get insights about songs. Be concise, warm, and enthusiastic. Currently playing: ${trackName ?? 'nothing'}.${librarySection}${playlistSection}${actionInstructions}`
 }
@@ -70,12 +83,12 @@ router.post('/', authMiddleware, chatRateLimit, async (req: Request, res: Respon
     const systemPrompt = buildSystemPrompt(trackName, library, playlists)
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.slice(-20),
       ],
-      max_tokens: 512,
+      max_tokens: 400,
     })
 
     const reply = completion.choices[0]?.message?.content ?? ''

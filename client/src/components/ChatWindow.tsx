@@ -25,10 +25,10 @@ interface Props {
 }
 
 const SUGGESTIONS = [
-  'Tell me about this track',
-  'Recommend similar artists',
-  'What genre is this?',
-  'Search for lo-fi beats',
+  'Play something from my library',
+  'Search for chill jazz',
+  'What is this genre called?',
+  'Add this track to my Favorites',
 ]
 
 export const ChatWindow = memo(function ChatWindow({ isOpen, onClose, trackName, library, playlists, onAction }: Props) {
@@ -99,18 +99,27 @@ export const ChatWindow = memo(function ChatWindow({ isOpen, onClose, trackName,
             </div>
           </div>
         )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`max-w-[82%] px-3 py-2 text-sm leading-relaxed ${
-              msg.role === 'user'
-                ? 'bg-orange-500 text-white self-end rounded-2xl rounded-br-sm'
-                : 'bg-[#1e1e21] text-zinc-300 self-start rounded-2xl rounded-bl-sm'
-            }`}
-          >
-            {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
-          </div>
-        ))}
+        {messages.map((msg, i) => {
+          if (msg.kind === 'action') {
+            return (
+              <p key={i} className="text-center text-[11px] text-zinc-600 italic px-4 py-0.5">
+                {msg.content}
+              </p>
+            )
+          }
+          return (
+            <div
+              key={i}
+              className={`max-w-[82%] px-3 py-2 text-sm leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-orange-500 text-white self-end rounded-2xl rounded-br-sm'
+                  : 'bg-[#1e1e21] text-zinc-300 self-start rounded-2xl rounded-bl-sm'
+              }`}
+            >
+              {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
+            </div>
+          )
+        })}
         {isLoading && (
           <div className="bg-[#1e1e21] rounded-2xl rounded-bl-sm px-3 py-2.5 self-start flex gap-1 items-center">
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:0ms]" />

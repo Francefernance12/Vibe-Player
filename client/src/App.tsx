@@ -234,21 +234,32 @@ function Player() {
     [playlists]
   )
 
-  const handleChatAction = useCallback((action: ChatAction) => {
+  const handleChatAction = useCallback((action: ChatAction): string | void => {
     if (action.type === 'play') {
       const track = tracks.find(t => t.id === action.trackId)
-      if (track) player.play(track)
+      if (track) {
+        player.play(track)
+        return `Playing "${track.originalName.replace(/\.[^.]+$/, '')}".`
+      }
+      return 'Track not found in your library.'
     } else if (action.type === 'search') {
       if (!action.query) return
       fetch(`/api/search?q=${encodeURIComponent(action.query)}`)
         .then(r => r.json())
         .then((data: SearchTrack[]) => { if (Array.isArray(data)) setSearchResults(data) })
         .catch(console.error)
+      return `Searching for "${action.query}"…`
     } else if (action.type === 'add_to_playlist') {
       const track = tracks.find(t => t.id === action.trackId)
-      if (track) addLocal(track, action.playlistId ?? defaultPlaylistId)
+      if (track) {
+        const targetId = action.playlistId ?? defaultPlaylistId
+        const playlist = playlists.find(p => p.id === targetId)
+        addLocal(track, targetId)
+        return `Added to "${playlist?.name ?? 'your playlist'}".`
+      }
+      return 'Track not found in your library.'
     }
-  }, [tracks, player, addLocal, defaultPlaylistId])
+  }, [tracks, player, addLocal, defaultPlaylistId, playlists])
 
   const nowPlayingName = player.currentTrack
     ? player.currentTrack.originalName.replace(/\.[^.]+$/, '')
