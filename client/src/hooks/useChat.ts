@@ -5,7 +5,34 @@ export interface ChatMessage {
   content: string
 }
 
-export function useChat(trackName?: string | null) {
+export interface ChatAction {
+  type: string
+  [key: string]: string
+}
+
+interface LibraryTrack { id: string; name: string }
+interface PlaylistSummary { id: string; name: string }
+
+interface UseChatOptions {
+  trackName?: string | null
+  library?: LibraryTrack[]
+  playlists?: PlaylistSummary[]
+  onAction?: (action: ChatAction) => void
+}
+
+const ACTION_RE = /<action>([\s\S]*?)<\/action>/
+
+function extractAction(text: string): { clean: string; action: ChatAction | null } {
+  const m = text.match(ACTION_RE)
+  if (!m) return { clean: text.trim(), action: null }
+  try {
+    return { clean: text.replace(ACTION_RE, '').trim(), action: JSON.parse(m[1]) as ChatAction }
+  } catch {
+    return { clean: text.replace(ACTION_RE, '').trim(), action: null }
+  }
+}
+
+export function useChat({ trackName, library, playlists, onAction }: UseChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -21,7 +48,12 @@ export function useChat(trackName?: string | null) {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: nextMessages, trackName: trackName ?? undefined }),
+        body: JSON.stringify({
+          messages: nextMessages,
+          trackName: trackName ?? undefined,
+          library,
+          playlists,
+        }),
       })
 
       if (res.status === 429) {
@@ -31,13 +63,15 @@ export function useChat(trackName?: string | null) {
       if (!res.ok) throw new Error('Request failed')
 
       const { reply } = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant' as const, content: reply }].slice(-20))
+      const { clean, action } = extractAction(reply as string)
+      setMessages(prev => [...prev, { role: 'assistant' as const, content: clean }].slice(-20))
+      if (action && onAction) onAction(action)
     } catch {
       setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Something went wrong. Try again.' }].slice(-20))
     } finally {
       setIsLoading(false)
     }
-  }, [messages, isLoading, trackName])
+  }, [messages, isLoading, trackName, library, playlists, onAction])
 
   const clearMessages = useCallback(() => setMessages([]), [])
 

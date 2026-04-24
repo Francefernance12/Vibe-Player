@@ -726,3 +726,40 @@ None additional beyond those noted in the prior session-5c review.
 - Extract `FREE_QUOTA_BYTES` to `server/src/config.ts` and import it in both routes.
 - Add a multer file-size 413 test to `tracks.test.ts`.
 - Consider a `session-5d` branch next time to keep PRs scoped to one session's work.
+
+---
+
+## Date: 2026-04-24
+
+## Branch: session-5c (continued)
+
+## What Changed
+
+### AI Assistant App Integration
+- **`server/src/routes/chat.ts`** — system prompt now includes the user's music library (up to 40 tracks with IDs) and playlist list; action tag format instructions added so the AI can embed `<action>{"type":"play","trackId":"..."}` etc. at the end of responses.
+- **`client/src/hooks/useChat.ts`** — signature changed from `useChat(trackName?)` to `useChat({ trackName, library, playlists, onAction })`; added `extractAction()` to parse and strip `<action>...</action>` tags from AI replies before display; parsed action dispatched via `onAction` callback.
+- **`client/src/components/ChatWindow.tsx`** — new props forwarded to `useChat`; suggestion chips added to empty state ("Tell me about this track", "Recommend similar artists", etc.); desktop window lifted to `sm:bottom-4` (was `sm:bottom-0`); slide-in transition smoothed to `duration-300 ease-out`; input form uses `env(safe-area-inset-bottom)` to avoid iOS home indicator overlap.
+- **`client/src/components/ChatBubble.tsx`** — bubble now fades/scales out when chat is open (`opacity-0 scale-75 pointer-events-none`), eliminating overlap with the ChatWindow submit button; added `shadow-orange-500/20` glow.
+- **`client/src/App.tsx`** — added `usePlaylist()` for playlist context; `library` and `playlistSummaries` memos built from track/playlist state; `handleChatAction` dispatches `play` (→ `player.play`), `search` (→ fetch `/api/search` + `setSearchResults`), and `add_to_playlist` (→ `addLocal`) actions.
+
+### Sample Cleanup
+- Deleted `server/samples/sample1.mp3`, `sample2.mp3`, `sample3.mp3` — only `MusicSample.mp3` remains.
+- Updated `api.test.ts` and `tracks.test.ts` to use `MusicSample.mp3` as the test fixture.
+
+## Issues Spotted
+
+1. **Action reliability depends on LLM compliance** — the AI is instructed to append action tags, but `llama-3.1-8b-instant` may omit or malformat them under rephrasing. The `extractAction` parser silently drops malformed JSON (safe default), but the user sees no feedback that their command wasn't executed. Consider a brief toast like "Playing…" or "Added to playlist" triggered in `handleChatAction`.
+
+2. **Library slice is client-only** — `library.slice(0, 40)` happens on the client before sending; if the user has > 40 tracks the AI won't know about them. The slice is hardcoded identically in App.tsx and in the server prompt builder (the server also slices to 40). Both are 40, which is consistent, but the limit is invisible to the user.
+
+3. **`handleChatAction` is not memoized against `defaultPlaylistId` changing** — `defaultPlaylistId` comes from `usePlaylist()` and could change if the Favorites playlist is renamed. The `useCallback` dep array includes it correctly, so this is fine — just noting it's load-bearing.
+
+4. **`search` action opens results in the Deezer panel but doesn't visually indicate the chat triggered it** — the results appear without explanation. A banner like "Vibe searched for 'jazz'" in the search container would clarify the source.
+
+5. **`server/samples/sample1.mp3` was the stream test fixture** — updated correctly, but if `MusicSample.mp3` is ever deleted the stream test will 404. Consider a small synthetic fixture (generated silence) committed to the test helpers instead of relying on a real audio file.
+
+## Suggestions
+
+- Add a lightweight toast/notification system (`react-hot-toast` or a custom one) so AI-triggered actions give visual confirmation.
+- Move `LIBRARY_LIMIT = 40` to a shared constant used by both App.tsx and chat.ts to keep them in sync.
+- Add a `chat.test.ts` case asserting that `library` and `playlists` appear in the system prompt (mock `buildSystemPrompt` or inspect the groq call args).

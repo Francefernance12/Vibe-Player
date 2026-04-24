@@ -10,7 +10,9 @@ export const ChatBubble = memo(function ChatBubble({ isOpen, onToggle }: Props) 
     <button
       onClick={onToggle}
       aria-label={isOpen ? 'Close chat' : 'Open music assistant'}
-      className="fixed bottom-36 right-4 sm:bottom-8 sm:right-6 z-50 w-12 h-12 rounded-full bg-orange-500 hover:bg-orange-400 active:scale-95 shadow-lg flex items-center justify-center transition-all"
+      className={`fixed bottom-36 right-4 sm:bottom-6 sm:right-6 z-50 w-12 h-12 rounded-full bg-orange-500 hover:bg-orange-400 active:scale-95 shadow-lg shadow-orange-500/20 flex items-center justify-center transition-all duration-200 ${
+        isOpen ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'
+      }`}
     >
       {isOpen ? (
         <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-white">

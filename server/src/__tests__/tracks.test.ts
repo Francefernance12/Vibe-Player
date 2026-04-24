@@ -22,7 +22,7 @@ jest.mock('../../db/index', () => ({
 
 import app from '../app';
 
-const SAMPLE_MP3 = path.join(__dirname, '../../samples/sample1.mp3');
+const SAMPLE_MP3 = path.join(__dirname, '../../samples/MusicSample.mp3');
 
 let authCookie: string;
 let userId: string;
@@ -54,7 +54,7 @@ describe('POST /api/tracks/upload', () => {
       .attach('file', SAMPLE_MP3);
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({
-      originalName: 'sample1.mp3',
+      originalName: 'MusicSample.mp3',
       mimeType: 'audio/mpeg',
       source: 'upload',
       externalUrl: BLOB_URL,

@@ -30,7 +30,7 @@ describe('ChatWindow', () => {
 
   it('send button enables when input has text', () => {
     render(<ChatWindow isOpen={true} onClose={() => {}} />)
-    fireEvent.change(screen.getByPlaceholderText(/ask about music/i), { target: { value: 'Hello' } })
+    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: 'Hello' } })
     expect(screen.getByLabelText('Send')).not.toBeDisabled()
   })
 
