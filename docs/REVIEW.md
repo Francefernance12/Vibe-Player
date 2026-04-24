@@ -618,3 +618,69 @@
 
 4. **Document Turso URL format in `.env_example`**: Add a comment to `.env_example` showing the expected Turso URL format (e.g., `libsql://[your-db].turso.io`) and link to Turso docs for obtaining auth tokens.
 
+
+---
+
+## Date: 2026-04-23
+
+## Branch Name: session-5c
+
+## What Changed
+
+20 files changed, 860 insertions(+), 275 deletions(-) across two features:
+
+**Session 5B — Upload Persistence via Vercel Blob + Turso**
+- `server/db/migrations/004_create_uploaded_tracks.sql` — new table tracking blob URL, user_id, metadata
+- `server/db/index.ts` — CRUD helpers for uploaded_tracks
+- `server/src/tracks.ts` — stripped to samples-only; removed disk-based upload logic
+- `server/src/routes/tracks.ts` — multer.memoryStorage(), Blob put/del, auth-aware GET
+- `server/src/__tests__/tracks.test.ts` — mocks @vercel/blob + db, covers 401/201/GET/DELETE paths
+- `client/src/App.tsx` — delete now uses track.id (Turso UUID) not filename
+
+**Session 5C — AI Music Assistant via Groq**
+- `server/src/routes/chat.ts` — auth + rate-limit (5/min per user) + Groq llama-3.1-8b-instant
+- `server/src/app.ts` — registers /api/chat
+- `server/src/__tests__/chat.test.ts` — 401/400/200/429 coverage, groq-sdk mocked
+- `client/src/hooks/useChat.ts` — rolling 20-msg history, 429 user message
+- `client/src/components/ChatBubble.tsx` — fixed orange FAB, chat/X icon toggle
+- `client/src/components/ChatWindow.tsx` — slide-in panel, message bubbles, loading dots
+- `client/src/__tests__/ChatWindow.test.tsx` — empty state, closed class, send button, onClose
+
+## Issues Spotted
+
+1. **Rate limit uses `req.user?.userId ?? 'anonymous'`**: The fallback to `'anonymous'` is dead code since `authMiddleware` runs before the rate limiter and would have already returned 401. Not a bug but adds confusion — remove the fallback.
+
+2. **No max message length validation on `/api/chat`**: A user could send a very long message, causing excessive token usage on Groq. Add a simple body-size check (e.g., reject if `content.length > 2000`).
+
+3. **`useChat` history cap is client-only**: Rolling 20-message cap prevents unbounded memory client-side, but the full history is still sent in each request body. If a user finds a way to inflate the array, the server will forward it all to Groq. Consider capping total chars on the server side before the Groq call.
+
+4. **`ChatWindow` test mocks `fetch` globally**: The global mock is set at module level — any test that runs after this file in the same suite will inherit the mock. Use `beforeEach`/`afterEach` with `vi.restoreAllMocks()` to isolate.
+
+## Suggestions
+
+- Add a server-side `content` length guard on POST /api/chat (e.g., 2000 chars per message).
+- Consider streaming Groq response in future when context grows (the `stream: true` option is available).
+- The `tryGetUserId` helper is a useful pattern — consider extracting it to `server/src/middleware/auth.ts` if it's needed in other routes.
+
+---
+
+## Date: 2026-04-23
+
+## Branch Name: session-5c (TS hotfix)
+
+## What Changed
+
+1 file changed — `client/src/hooks/useChat.ts`: added `as const` to three `role: 'assistant'` literals in `setMessages` calls. TypeScript was widening the role to `string`, causing build failure on Vercel.
+
+Also updated:
+- `docs/DECISIONS.md`: documented the `as const` fix rationale and the Groq + rate-limit decisions
+- `docs/PLANCHECKLIST.md`: marked TS fix as complete
+
+## Issues Spotted
+
+None additional beyond those noted in the prior session-5c review.
+
+## Suggestions
+
+- Consider defining a helper `assistantMsg(content: string): ChatMessage` to avoid the `as const` pattern at every call site.
+- Add a client-side Vitest snapshot or type-level test (using `satisfies`) to catch this class of regression early.

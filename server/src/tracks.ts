@@ -37,22 +37,15 @@ function readDir(dir: string, source: Track['source']): Track[] {
     }));
 }
 
-/** Returns all tracks (samples + uploads). IDs are regenerated each call. */
-export function getAllTracks(): Track[] {
-  return [...readDir(SAMPLES_DIR, 'sample'), ...readDir(UPLOADS_DIR, 'upload')];
+/** Returns sample tracks only. Uploaded tracks are stored in Turso + Blob. */
+export function getSampleTracks(): Track[] {
+  return readDir(SAMPLES_DIR, 'sample');
 }
 
-/** Finds the file path for a given filename across samples and uploads. */
+/** Finds the file path for a sample track by filename. */
 export function resolveTrackPath(filename: string): string | null {
-  for (const dir of [SAMPLES_DIR, UPLOADS_DIR]) {
-    const fullPath = path.join(dir, filename);
-    if (fs.existsSync(fullPath)) return fullPath;
-  }
-  return null;
+  const fullPath = path.join(SAMPLES_DIR, filename);
+  return fs.existsSync(fullPath) ? fullPath : null;
 }
 
-export function isSampleFilename(filename: string): boolean {
-  return fs.existsSync(path.join(SAMPLES_DIR, filename))
-}
-
-export { UPLOADS_DIR, AUDIO_MIME };
+export { AUDIO_MIME };

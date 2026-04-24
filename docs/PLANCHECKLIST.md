@@ -275,12 +275,41 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ---
 
-### Session 4C — Backlog + Architecture Docs
+### ~~Session 4C — Backlog + Architecture Docs~~ DEFERRED
 
-- ⬜ `BACKLOG.md` created with effort vs. impact matrix
-- ⬜ `ARCHITECTURE.md` written documenting current system design
-- ⬜ One backlog feature selected and implemented
-- ⬜ **Checkpoint**: Docs written, feature shipped
+> Deferred in favour of higher-priority feature work (upload persistence + AI chatbot). Revisit if the project reaches a maintenance-only phase.
+
+---
+
+## Phase 5 — Feature Additions
+
+### Session 5B — Upload Persistence (Vercel Blob)
+
+- ✅ Vercel Blob store created in dashboard; `BLOB_READ_WRITE_TOKEN` added to Vercel env vars + local `.env`
+- ✅ `@vercel/blob` installed in `/server`
+- ✅ `server/db/migrations/004_create_uploaded_tracks.sql` — new table: `id, user_id, filename, original_name, mime_type, size, blob_url, created_at`
+- ✅ `server/db/index.ts` — add `createUploadedTrack`, `getUploadedTracksByUser`, `getUploadedTrackById`, `deleteUploadedTrack`
+- ✅ `server/src/routes/tracks.ts` — multer → `memoryStorage`; upload calls `put()` + `createUploadedTrack`; GET queries Turso for user uploads; DELETE calls `del()` + removes DB row
+- ✅ `server/src/__tests__/tracks.test.ts` — mocks `@vercel/blob`; upload saves to DB; GET returns user tracks; DELETE cleans both; 45 server tests pass
+- ✅ `client/src/App.tsx` — delete now uses `track.id` (stable Turso uuid) instead of filename
+- ⬜ **Checkpoint**: Upload → log out → log in → file still plays; works from a different device
+
+---
+
+### Session 5C — AI Music Assistant Chatbot (Groq)
+
+- ⬜ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
+- ✅ `groq-sdk` installed in `/server`
+- ✅ `POST /api/chat` endpoint — auth-protected, rate-limited (5 req/min per user), calls Groq `llama-3.1-8b-instant`
+- ✅ `server/src/__tests__/chat.test.ts` — 401 without auth, 200 with reply, 429 on rate limit
+- ✅ `client/src/hooks/useChat.ts` — messages state, `sendMessage`, rolling 20-message cap
+- ✅ `client/src/components/ChatBubble.tsx` — fixed orange button, bottom-right, clears mobile bar
+- ✅ `client/src/components/ChatWindow.tsx` — slide-in panel, message list, input, loading dots
+- ✅ `client/src/App.tsx` — mount ChatBubble + ChatWindow, pass `nowPlayingName`
+- ✅ 41 client + 49 server tests pass
+- ✅ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
+- ✅ TS fix: `role: 'assistant' as const` in `useChat` spread (widening caused type error on Vercel build)
+- ⬜ **Checkpoint**: Click bubble → chat opens; ask about a song → response < 2s; 6th msg/min → 429
 
 ---
 

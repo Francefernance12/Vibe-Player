@@ -124,6 +124,58 @@ export async function deletePlaylist(db: Client, id: string): Promise<void> {
   await db.execute({ sql: 'DELETE FROM playlists WHERE id = ?', args: [id] })
 }
 
+// --- Uploaded tracks ---
+
+export interface DbUploadedTrack {
+  id: string
+  user_id: string
+  filename: string
+  original_name: string
+  mime_type: string
+  size: number
+  blob_url: string
+  created_at: string
+}
+
+function toDbUploadedTrack(r: Row): DbUploadedTrack {
+  return {
+    id: String(r.id),
+    user_id: String(r.user_id),
+    filename: String(r.filename),
+    original_name: String(r.original_name),
+    mime_type: String(r.mime_type),
+    size: Number(r.size),
+    blob_url: String(r.blob_url),
+    created_at: String(r.created_at),
+  }
+}
+
+export async function createUploadedTrack(db: Client, track: Omit<DbUploadedTrack, 'created_at'>): Promise<DbUploadedTrack> {
+  const created_at = new Date().toISOString()
+  await db.execute({
+    sql: 'INSERT INTO uploaded_tracks (id, user_id, filename, original_name, mime_type, size, blob_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    args: [track.id, track.user_id, track.filename, track.original_name, track.mime_type, track.size, track.blob_url, created_at],
+  })
+  return { ...track, created_at }
+}
+
+export async function getUploadedTracksByUser(db: Client, userId: string): Promise<DbUploadedTrack[]> {
+  const { rows } = await db.execute({
+    sql: 'SELECT * FROM uploaded_tracks WHERE user_id = ? ORDER BY created_at ASC',
+    args: [userId],
+  })
+  return rows.map(toDbUploadedTrack)
+}
+
+export async function getUploadedTrackById(db: Client, id: string): Promise<DbUploadedTrack | null> {
+  const { rows } = await db.execute({ sql: 'SELECT * FROM uploaded_tracks WHERE id = ?', args: [id] })
+  return rows.length ? toDbUploadedTrack(rows[0]) : null
+}
+
+export async function deleteUploadedTrack(db: Client, id: string): Promise<void> {
+  await db.execute({ sql: 'DELETE FROM uploaded_tracks WHERE id = ?', args: [id] })
+}
+
 // --- Playlist tracks ---
 
 export async function getTracksByPlaylist(db: Client, playlistId: string): Promise<DbPlaylistTrack[]> {

@@ -15,6 +15,8 @@ import { SearchResults } from './components/SearchResults'
 import { PlaylistPanel } from './components/PlaylistPanel'
 import { LoginPage } from './components/LoginPage'
 import { RegisterPage } from './components/RegisterPage'
+import { ChatBubble } from './components/ChatBubble'
+import { ChatWindow } from './components/ChatWindow'
 import { filterAndSortTracks, SortOption } from './utils/trackFilter'
 
 function makeSyntheticTrack(result: SearchTrack): Track {
@@ -99,6 +101,7 @@ function Player() {
   const [filterText, setFilterText] = useState('')
   const [sortOption, setSortOption] = useState<SortOption>('default')
   const [searching, setSearching] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   const player = usePlayer(tracks)
 
@@ -137,7 +140,7 @@ function Player() {
 
   const handleDeleteTrack = useCallback(async (track: Track) => {
     if (track.source === 'upload') {
-      await fetch(`/api/tracks/${encodeURIComponent(track.filename)}`, { method: 'DELETE' })
+      await fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
     }
     setTracks(prev => prev.filter(t => t.filename !== track.filename))
     if (player.currentTrack?.filename === track.filename) player.stop()
@@ -262,6 +265,9 @@ function Player() {
         </div>
 
       </div>
+
+      <ChatBubble isOpen={isChatOpen} onToggle={() => setIsChatOpen(o => !o)} />
+      <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} trackName={nowPlayingName} />
     </div>
   )
 }

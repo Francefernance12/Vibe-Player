@@ -6,6 +6,7 @@ import tracksRouter from './routes/tracks';
 import searchRouter from './routes/search';
 import authRouter from './routes/auth';
 import playlistsRouter from './routes/playlists';
+import chatRouter from './routes/chat';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use('/api/tracks', tracksRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/playlists', playlistsRouter);
+app.use('/api/chat', chatRouter);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

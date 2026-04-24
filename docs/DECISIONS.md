@@ -151,6 +151,24 @@ Migrations and the `PRAGMA foreign_keys = ON` call are async and must be awaited
 
 ---
 
+## Phase 5 — Feature Additions
+
+### Session 5B — Upload Persistence
+
+**Vercel Blob over ephemeral `/tmp` for uploaded files**
+`multer.diskStorage` wrote to `/tmp` on Vercel, which is cleared between container invocations — uploaded tracks would 404 after a cold start or from a different device. Replaced with `@vercel/blob`: `put()` uploads the file buffer directly to Vercel's CDN and returns a permanent public URL. The blob URL is stored in a new Turso table (`uploaded_tracks`) keyed by `user_id`, so each user's uploads persist across sessions and devices. Sample tracks continue to be served from the bundled filesystem via the streaming endpoint.
+
+**Multer memoryStorage instead of diskStorage**
+With Vercel Blob, files never need to touch the local filesystem. Switching to `multer.memoryStorage()` puts the file bytes in `req.file.buffer`, which is passed directly to `put()`. This also removes the `/tmp` dependency entirely — no `IS_VERCEL` branching needed in the upload path.
+
+**Upload route requires auth; DELETE uses track ID (not filename)**
+Uploaded tracks are associated with a `user_id` in Turso, so the upload endpoint now requires a valid JWT cookie. The delete endpoint was changed from `/:filename` to `/:id`, using the Turso-generated UUID as the stable identifier. The client was updated to call `DELETE /api/tracks/${track.id}`. Ownership is checked server-side before deleting.
+
+**GET /api/tracks is auth-aware (not auth-required)**
+Unauthenticated requests return sample tracks only. Authenticated requests append the user's uploaded tracks (with `externalUrl` set to the blob URL). The player's existing `externalUrl` handling in `usePlayer` covers blob URLs without any client-side changes.
+
+---
+
 ## AI Workflow & Tooling
 
 **Claude Code (claude CLI) as primary development agent**
@@ -170,3 +188,16 @@ Generates high-quality, production-grade UI code with a distinct visual style. A
 
 **vercel-react-best-practices skill**
 A curated set of Vercel engineering rules (re-render avoidance, ref-based transient values, memoization, bundle hygiene). Consulted before writing any React component. The ProgressBar's ref-based tick update is a direct result of this skill's `rerender-use-ref-transient-values` rule.
+
+---
+
+## Phase 5 — Session 5C — AI Chatbot
+
+**Groq + `llama-3.1-8b-instant`**
+Free-tier inference at ~750 tok/s. Chosen over OpenRouter for simpler integration (official `groq-sdk`), no credit card required on free tier, and adequate speed without streaming.
+
+**`express-rate-limit` keyed on `req.user.userId`**
+Rate limiting per authenticated user rather than per IP avoids false-positives on shared IPs (offices, NAT). Auth middleware runs before the limiter so `req.user` is always populated by the time the key is generated. `validate: { xForwardedForHeader: false }` suppresses a spurious IPv6 warning on Vercel.
+
+**`role: 'assistant' as const` in useChat spread**
+TypeScript widens object literal property values to `string` when spread into an array. Spreading `{ role: 'assistant' }` produces `role: string`, which is incompatible with the `ChatMessage` union `'user' | 'assistant'`. Adding `as const` to the role preserves the literal type and satisfies the state setter's type constraint. Applied to all three `setMessages` call sites in `useChat`.

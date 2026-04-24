@@ -88,7 +88,7 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 | Audio              | Howler.js                            |
 | Backend            | Node.js + Express                    |
 | Search             | Deezer public API (no key required)  |
-| Database           | SQLite via better-sqlite3 (Phase 3+) |
+| Database           | Turso (libSQL) via @libsql/client    |
 | Testing (backend)  | Jest + Supertest                     |
 | Testing (frontend) | Vitest + React Testing Library       |
 | Deployment         | Vercel                               |
@@ -166,146 +166,35 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 
 ---
 
-### Session 2C — Bug Fixes + Core UX Features ⬜ NEXT
+### Session 2C — Bug Fixes + Core UX Features ✅ COMPLETE
 
-**Scope**: Two bug fixes, delete uploaded tracks, sort/filter the track list. Frontend-only except the one delete endpoint. No new dependencies.
-
-**Bug 1 — Deezer previews not playing**
-
-- Root cause: `usePlayer` always builds `src` as `/api/tracks/${filename}/stream`. Deezer synthetic tracks set `filename` to the preview URL, routing it through Express where it fails.
-- Fix: Add `externalUrl?: string` to `Track` in `shared/types.ts`. Set it in `handleSearchSelect` in `App.tsx`. Have `usePlayer.play()` use it as the Howler `src` directly when present.
-
-**Bug 2 — Playlist items not playable**
-
-- Root cause: `PlaylistPanel` has no play callback; rows are not clickable.
-- Fix: Add `onPlay: (item: PlaylistItem) => void` prop to `PlaylistPanel`. Wire it in `App.tsx`. Make each row's track-name area clickable. Highlight the currently-playing item.
-
-**Delete uploaded tracks**
-
-- Add `DELETE /api/tracks/:filename` endpoint — deletes file from disk (`uploads/` only). Returns 403 for sample files, 404 if not found.
-- Add a delete icon button on upload-source rows in `TrackList` (hidden for samples). On confirm, call endpoint and remove from local state. If the deleted track is currently playing, stop playback.
-- Supertest test: delete succeeds for uploaded file; returns 403 for sample.
-- Vitest test: delete button renders only on upload-source rows.
-
-**Sort & Filter for Track List**
-
-- Filter input above `TrackList`: real-time case-insensitive match on `originalName`.
-- Sort dropdown: A–Z, Z–A, Size ↑, Size ↓, Source (samples first).
-- Client-side only, no new endpoints. State in `App.tsx`.
-- Vitest test: filter narrows correctly; sort orders correctly.
-
-**Steps**
-
-1. `shared/types.ts` — add `externalUrl?: string`
-2. `usePlayer.ts` — use `externalUrl` as Howler src when present
-3. `App.tsx` — set `externalUrl` on Deezer synthetic track; wire `onPlay` to `PlaylistPanel`; add filter/sort state above `TrackList`
-4. `PlaylistPanel.tsx` — add `onPlay` prop, clickable rows, active item highlight
-5. `server/src/routes/tracks.ts` — add `DELETE /:filename` route
-6. `server/src/__tests__/api.test.ts` — add delete tests
-7. `TrackList.tsx` — add delete button for upload rows; call stop if deleting active track
-8. Filter/sort bar (inline in App or small `TrackFilter.tsx`) + Vitest test
-9. `npm test` — all must pass
-10. Manual smoke test: Deezer preview plays · playlist item plays · delete works · filter/sort works
-11. Update `docs/PLANCHECKLIST.md`, commit, run `/commitReview`
-
-**Checkpoint**: Deezer previews play. Playlist items play. Uploaded tracks deletable. Track list filterable and sortable.
+> Deezer previews play. Playlist items play. Delete uploaded tracks. Track list filterable and sortable.
 
 ---
 
-### Session 2D — UI Polish ⬜ OPTIONAL
+### Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
-> Only if 2C is fully clean. One focused pass, no new features.
-
-- Distinct play-preview vs add-to-playlist buttons in `SearchResults` so intent is unambiguous
-- Now-playing indicator in `PlaylistPanel` (animated dot or color accent on active row) if not already done in 2C
-- Update `docs/PLANCHECKLIST.md`, commit, run `/commitReview`
+> Multi-playlist support (`playlists:v2`), collapsible accordion, inline playlist picker with grid-rows animation, orange dot for now-playing.
 
 ---
 
-## Phase 3 — Authentication + Database
+## Phase 3 — Authentication + Database ✅ COMPLETE
 
-**Goal**: Users can register, log in, and have playlists saved server-side. `docs/DATABASE_SCHEMA.md` already exists and is approved — use it as the source of truth. Do not deviate from it without updating the doc first.
+### Session 3A — SQLite Setup ✅ COMPLETE
+> migrations 001–003, typed DB helpers, in-memory tests.
 
-> Note: `DATABASE_SCHEMA.md` still references `'spotify'` as a source value in `playlist_tracks`. Update it to `'deezer'` before Session 3A begins.
+### Session 3B — Auth Endpoints ✅ COMPLETE
+> bcrypt + JWT + httpOnly cookies. `/register`, `/login`, `/logout`, `/me`. Rate-limited.
 
----
-
-### Session 3A — Schema Update + SQLite Setup
-
-**Deliverable**: All database operations tested with in-memory SQLite.
-
-Steps:
-
-1. Update `docs/DATABASE_SCHEMA.md`: change source enum from `'local' | 'spotify' | 'youtube'` to `'local' | 'deezer'` and update the Deezer track JSON shape accordingly
-2. Install `better-sqlite3`
-3. Create `/server/db/migrations/`:
-
-- `001_create_users.sql`
-- `002_create_playlists.sql`
-- `003_create_playlist_tracks.sql`
-- Write these exactly from the updated `docs/DATABASE_SCHEMA.md`
-
-1. Write `/server/db/migrate.ts` — simple runner, executes migrations in order
-2. Write `/server/db/index.ts` — typed query helpers for all tables
-3. Write Jest tests for all DB operations using `:memory:` database
-4. Run `npm run test:server` — all must pass
-5. Update `docs/PLANCHECKLIST.md`
-6. Commit, run `/commitReview`
-
-**Checkpoint**: All DB tests pass with in-memory SQLite. No real `.db` file created.
+### Session 3C — Auth UI + Playlist Persistence ✅ COMPLETE
+> LoginPage, RegisterPage, AuthContext, AuthGate. Playlists synced to Turso on every mutation.
 
 ---
 
-### Session 3B — Auth Endpoints
+## Phase 3B — Database Hotfix ✅ COMPLETE
 
-**Deliverable**: Register and login flow working via curl/Postman.
-
-Steps:
-
-1. Install `bcrypt` and `jsonwebtoken`
-2. Implement endpoints:
-
-- `POST /api/auth/register` — validate input, hash password (cost 12), insert user, return JWT
-- `POST /api/auth/login` — verify credentials, return JWT
-- `GET /api/auth/me` — decode JWT from `httpOnly` cookie, return user
-
-1. Write `authMiddleware` — attaches user to request or returns 401
-2. Apply `authMiddleware` to all playlist endpoints
-3. Write Supertest tests:
-
-- Register creates user, returns JWT
-- Login with wrong password returns 401
-- `GET /api/auth/me` with valid JWT returns user
-- `GET /api/auth/me` with no JWT returns 401
-
-1. Update `docs/PLANCHECKLIST.md`
-2. Commit, run `/commitReview`
-
-**Checkpoint**: `curl -X POST /api/auth/register` → get JWT → use on `/api/auth/me`.
-
----
-
-### Session 3C — Auth UI + Playlist Persistence
-
-**Deliverable**: Full end-to-end auth flow with server-side playlist storage.
-
-Steps:
-
-1. Build `LoginPage` and `RegisterPage` in `/client/src/pages/`
-2. Store JWT in `httpOnly` cookie (set by server response, not JS)
-3. Create `AuthContext` in `/client/src/contexts/` — current user, login, logout
-4. Add `GET /api/playlists` and `POST /api/playlists` endpoints (auth-protected)
-5. Add `PUT /api/playlists/:id/tracks` for reorder operations
-6. Migrate playlist save/load from `localStorage` to the API
-7. Write Vitest tests for auth UI:
-
-- Login form shows error on bad credentials
-- Register form validates email format
-
-1. Update `docs/PLANCHECKLIST.md`
-2. Commit, run `/commitReview` — opencode creates PR from `phase-3` branch into `main`
-
-**Checkpoint**: Register → log in → build playlist → refresh → playlist persists.
+### Session 5A — SQLite → Turso (libSQL) ✅ COMPLETE
+> `better-sqlite3` wrote to `/tmp` which is ephemeral per Vercel container. Replaced with `@libsql/client` pointing to a Turso-hosted SQLite instance. All DB helpers made async. 42 server tests pass.
 
 ---
 
@@ -315,58 +204,47 @@ Steps:
 
 ---
 
-### Session 4A — Performance Audit
+### Session 4A — Performance ✅ COMPLETE
+> Loading skeletons, bundle audit (94 kB gzip), Lighthouse 92/92/96/82 on mobile.
 
-Steps:
+### Session 4B — Mobile Responsiveness ✅ COMPLETE
+> Fixed bottom-sheet player, swipe gestures (`react-swipeable`), 44px touch targets, touch seek on ProgressBar.
 
-1. Resolve the root `tsconfig.json` / `server/tsconfig.json` conflict flagged in `docs/REVIEW.md`
-2. Run Lighthouse on the live Vercel URL
-3. Fix any score below 80 on mobile (lazy loading, bundle splitting)
-4. Run `vite-plugin-visualizer` to inspect bundle composition
-5. Confirm `ProgressBar` Howler.js ticks do not cause re-renders
-6. Add loading skeletons to `TrackList` and search results
-7. Update `docs/PLANCHECKLIST.md`
-8. Commit, run `/commitReview`
-
-**Checkpoint**: Lighthouse performance score > 80 on mobile.
+### ~~Session 4C — Backlog + Architecture Docs~~ DEFERRED
+> Deferred in favour of upload persistence and AI chatbot (Phase 5).
 
 ---
 
-### Session 4B — Mobile Responsiveness
+## Phase 5 — Feature Additions
 
-Steps:
+### Session 5B — Upload Persistence (Vercel Blob) 🔄 Code complete, pending env var
 
-1. Audit all components at 375px viewport width
-2. Fix Tailwind breakpoints for small screens
-3. Implement bottom-sheet player for mobile (slides up when a track is playing)
-4. Add swipe-to-skip gesture (`react-swipeable`)
-5. Update `docs/PLANCHECKLIST.md`
-6. Commit, run `/commitReview`
+**Problem**: Uploaded files written to `/tmp` vanish on Vercel cold start or different device.
 
-**Checkpoint**: App is fully usable on a phone screen.
+**Fix**: `@vercel/blob` `put()` stores the file on Vercel's CDN and returns a permanent public URL. Metadata stored in Turso (`uploaded_tracks` table). Player uses blob URL via existing `externalUrl` field.
+
+**User action required**: Vercel dashboard → Storage → Create Blob Store → add `BLOB_READ_WRITE_TOKEN` to Vercel env vars + local `.env`.
+
+**Checkpoint**: Upload → log out → log back in → file still plays; works from another device.
 
 ---
 
-### Session 4C — Backlog + Architecture Docs
+### Session 5C — AI Music Assistant Chatbot ⬜ NEXT
 
-Steps:
+**What it does**:
+- Orange bubble button fixed bottom-right (above mobile player bar)
+- Slide-in chat panel from the right
+- Knows the currently playing track name
+- Session history (20-message rolling cap)
+- Rate limited: 5 req/min per authenticated user
 
-1. Write `docs/ARCHITECTURE.md` documenting current system design
-2. Create `BACKLOG.md` in root with effort vs. impact scoring for each idea
-3. Pick one item from the backlog and implement it
-4. Commit, run `/commitReview` — opencode creates final PR into `main`
+**Backend** (`POST /api/chat`): Auth-protected. Calls Groq API (`llama-3.1-8b-instant` — free, ~750 tok/s). Returns `{ reply: string }`.
 
-**Backlog ideas to score**:
+**User action required**: Sign up at console.groq.com → copy `GROQ_API_KEY` → add to Vercel env vars + local `.env`.
 
-- YouTube audio streaming (yt-dlp wrapper — deferred from Phase 2)
-- Offline mode (service worker + Cache API)
-- Waveform visualizer (Web Audio API `AnalyserNode`)
-- Collaborative playlist URLs (read-only, no login required)
-- Last.fm scrobbling
-- PWA — installable on phone
-- PostgreSQL migration for multi-user scale
-- Discord Rich Presence
-- Persistent upload storage (S3 or Cloudflare R2, replacing `/tmp` on Vercel)
+**New files**: `server/src/routes/chat.ts`, `client/src/hooks/useChat.ts`, `client/src/components/ChatBubble.tsx`, `client/src/components/ChatWindow.tsx`
+
+**Checkpoint**: Click bubble → chat opens; ask about a song → reply in < 2s; 6th message/min → 429.
 
 ---
 
