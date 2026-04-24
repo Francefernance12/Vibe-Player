@@ -661,3 +661,26 @@
 - Add a server-side `content` length guard on POST /api/chat (e.g., 2000 chars per message).
 - Consider streaming Groq response in future when context grows (the `stream: true` option is available).
 - The `tryGetUserId` helper is a useful pattern — consider extracting it to `server/src/middleware/auth.ts` if it's needed in other routes.
+
+---
+
+## Date: 2026-04-23
+
+## Branch Name: session-5c (TS hotfix)
+
+## What Changed
+
+1 file changed — `client/src/hooks/useChat.ts`: added `as const` to three `role: 'assistant'` literals in `setMessages` calls. TypeScript was widening the role to `string`, causing build failure on Vercel.
+
+Also updated:
+- `docs/DECISIONS.md`: documented the `as const` fix rationale and the Groq + rate-limit decisions
+- `docs/PLANCHECKLIST.md`: marked TS fix as complete
+
+## Issues Spotted
+
+None additional beyond those noted in the prior session-5c review.
+
+## Suggestions
+
+- Consider defining a helper `assistantMsg(content: string): ChatMessage` to avoid the `as const` pattern at every call site.
+- Add a client-side Vitest snapshot or type-level test (using `satisfies`) to catch this class of regression early.
