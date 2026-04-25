@@ -959,3 +959,46 @@ All 49 client tests and 52 server tests pass.
 - Audit `App.tsx` props passed to `PlayerBar` to confirm all function props are wrapped in `useCallback`. Otherwise the `React.memo` on `PlayerBar` fires on every App render regardless.
 - Session 7B (backend audit: N+1 query in playlists, atomicity of `replacePlaylistTracks`, missing DB indexes) is the natural next step.
 - Consider adding a `useChat.test.ts` to cover `extractAction` and the ref-based `sendMessage` path — no test currently exercises the rollup of `messagesRef` updates in the success and error paths.
+
+---
+
+## Date: 2026-04-25
+
+## Branch Name: session-7b
+
+## What Changed
+
+8 files changed, 92 insertions(+), 10 deletions(-) — backend performance audit via perf-optimizer.
+
+### Files Modified:
+- `server/db/migrations/005_add_indexes.sql` (new) — `CREATE INDEX IF NOT EXISTS` for `playlists(user_id)`, `playlist_tracks(playlist_id)`, `uploaded_tracks(user_id)`
+- `server/db/migrate.ts` — `db.execute(sql)` → `db.executeMultiple(sql)` so multi-statement migration files run correctly (previously only the first statement in a file executed)
+- `server/db/index.ts` — new `getPlaylistsWithTracks` helper using a single LEFT JOIN; `PlaylistWithTracks` interface exported; `replacePlaylistTracks` docstring corrected to accurately describe `db.batch('write')` atomicity
+- `server/src/routes/playlists.ts` — `GET /api/playlists` N+1 `Promise.all(playlists.map(...))` replaced with single `getPlaylistsWithTracks` call; response shape unchanged
+- `server/src/middleware/auth.ts` — fast-path exit intent comment + `getJwtSecret()` fail-fast behaviour comment
+- `server/src/routes/chat.ts` — comment documenting MemoryStore cold-start reset and Vercel implication for abuse prevention
+- `server/src/routes/tracks.ts` — comment documenting intentional per-request freshness of `getUserUploadedBytes`
+- `docs/PLANCHECKLIST.md` — Phase 7 section added; Sessions 7A and 7B marked complete; Agent Review Log updated
+
+### Summary:
+- The most impactful change is eliminating the N+1 in `GET /api/playlists`. A user with 5 playlists previously caused 6 Turso round-trips (1 list + 5 track fetches). Now it's 1. At ~50ms per remote round-trip, this cuts worst-case response time from ~300ms to ~50ms.
+- Key finding: `db.batch(stmts, 'write')` is already atomic — `@libsql/client` wraps it in a transaction internally. Adding explicit `BEGIN/COMMIT` would fail with "cannot start a transaction within a transaction" on the sqlite3 in-memory driver used in tests. The fix was accurate documentation, not a logic change.
+- The three missing indexes from `DATABASE_SCHEMA.md` are now applied via migration 005. The `executeMultiple` fix in `migrate.ts` was a prerequisite — without it, multi-statement `.sql` files silently only ran the first statement.
+- All 52 server tests pass.
+
+## Issues Spotted
+
+1. **`getPlaylistsWithTracks` uses SQLite JSON aggregation**: The `json_group_array` / `json_each` approach works in libSQL (Turso) but is harder to read than a two-query approach (`playlists` then `WHERE playlist_id IN (...)`). Both have identical round-trip count, but the two-query form would be easier to maintain.
+
+2. **Migration 005 applied on every test `initDb` call**: `IF NOT EXISTS` makes it idempotent and safe, but every `beforeAll`/`beforeEach` across all test files now runs the index creation. Small overhead, not a regression.
+
+3. **`getUserUploadedBytes` still called twice per upload**: Per the audit, this is intentional (per-request freshness). Caching via `res.locals` would require request-scoped storage and adds complexity for marginal gain at current scale — correct call to leave it.
+
+4. **Rate limiter cold-start comment is only in `chat.ts`**: If a second rate limiter is added in a future route, the documentation pattern may not be followed. A central comment in `app.ts` near the middleware setup would be more durable.
+
+## Suggestions
+
+- If `getPlaylistsWithTracks` query complexity grows, consider extracting the SQL into a `.sql` template file alongside the migration files for easier editing with syntax highlighting.
+- Add a migration idempotency test: run `initDb` twice on the same in-memory DB and assert no error and no duplicate rows.
+- Create `server/src/config.ts` with `FREE_QUOTA_BYTES` constant (flagged in Session 5D review, still unresolved) — would give a natural home for other constants like `RATE_LIMIT_WINDOW_MS`.
+- Consider adding `idx_users_email` to migration 005 — `users` is queried by email on every login/register. SQLite creates an implicit index for `UNIQUE` columns, but documenting it explicitly would be consistent with the other named indexes.
