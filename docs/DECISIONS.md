@@ -222,7 +222,7 @@ Placed below `FileUpload` so the user sees remaining space immediately before ch
 
 ## Phase 6 — Playback Modes, Layout, Cascade Delete
 
-### Session 6A — Player Enhancements (planned)
+### Session 6A — Player Enhancements
 
 **`useRef` for Howl closure state (shuffle / loopMode / queue)**
 Howl's `onend` callback is captured in a closure when the `Howl` is created. If shuffle/loopMode/queue were plain `useState` values, the closure would see stale values from the render cycle when `play()` was last called. Using `useRef` for these values lets the closure always read the latest state without re-creating the Howl on every toggle. A separate `useState` mirrors each ref purely for triggering re-renders (button active states).
@@ -233,7 +233,7 @@ Rather than always navigating the full library on next/prev, `play(track, contex
 **Loop mode cycle: none → track → queue**
 Three modes rather than a binary toggle. `none` = stop at end. `track` = restart current song (Howl seek(0)). `queue` = wrap from last to first. Cycled with a single button to avoid UI clutter. The mode is displayed as a changing icon (→ / 🔂 / 🔁).
 
-### Session 6B — Desktop Layout (planned)
+### Session 6B — Desktop Layout
 
 **Unified PlayerBar replaces MobilePlayerBar + desktop card**
 The mobile fixed bottom bar (`sm:hidden`) and the desktop embedded player card (`hidden sm:flex`) are replaced by a single `PlayerBar` component always visible at the bottom. This follows standard music player conventions (Spotify, Apple Music) and eliminates the inconsistency of having two different player UIs. Shuffle and loop buttons are added to this bar.
@@ -241,7 +241,7 @@ The mobile fixed bottom bar (`sm:hidden`) and the desktop embedded player card (
 **Tabs (Library | Playlists) on desktop**
 Separates upload/search/library actions from playlist management — previously everything was stacked vertically, making the page long and hard to navigate with many playlists. Tabs are client-side state only (no routing) to keep the app single-page without React Router.
 
-### Session 6C — Cascade Delete + Chat Actions (planned)
+### Session 6C — Cascade Delete + UX Polish
 
 **Cascade delete via `removeTrackFromAllPlaylists` in PlaylistContext**
 When a track is deleted from the library, it should disappear from all playlists. Previously, playlist items became orphaned (stored as `{ kind: 'local', track }` references with no validity check at play time). The cascade function filters all playlist items in one pass and syncs to the backend, keeping playlists consistent without a server-side foreign key (playlist items are stored as JSON blobs, not relational rows).
@@ -251,3 +251,22 @@ Added `pause`, `resume`, `skip`, `prev`, `set_volume`, and `search_and_play` to 
 
 **Model: `llama-3.3-70b-versatile` (upgraded from 8B in Session 5E)**
 Switched from `llama-3.1-8b-instant` to `llama-3.3-70b-versatile` for reliably following structured action tag instructions. Still on Groq free tier. The larger model is necessary as the action vocabulary grows — a 6-rule prompt with placeholders is too complex for an 8B model to follow consistently.
+
+**Tooltip positioning: `bottom` anchor + `onMouseMove`**
+The original tooltip used `getBoundingClientRect()` on the trigger element and `transform: translateY(-100%)` for placement above the cursor. Two problems: (1) the element rect positions relative to the element, not the cursor position; (2) the `animate-fade-in` CSS keyframe also sets `transform`, fighting the inline style and preventing above-cursor placement during animation. Replaced with `onMouseMove` tracking `e.clientX/e.clientY` and `bottom: window.innerHeight - pos.y + GAP` to anchor the card's bottom edge above the cursor — no `transform` for positioning, so no animation conflict. Falls back to `top: pos.y + GAP + 20` when near the top of the viewport.
+
+**Hover device detection via `matchMedia`**
+Tooltip is disabled on touch devices using `window.matchMedia('(hover: hover) and (pointer: fine)').matches` evaluated once at module load. Wrapped in a try/catch IIFE so jsdom (test environment) doesn't throw on `matchMedia` — returns `false` in tests, which correctly disables the tooltip in test renders.
+
+**Mobile ⋮ context menu via portal**
+On mobile, the desktop track action buttons (`+` / trash) are hidden with `hidden sm:flex`. A single `⋮` button (visible only on mobile via `flex sm:hidden`) opens a `MobileMenu` component rendered via `createPortal` to `document.body`. Portal rendering avoids z-index and overflow clipping from the track list container. The menu closes on outside interaction via `touchstart`/`mousedown` listeners on `document`. "Info" opens an `InfoBottomSheet` (also portal-rendered) with full track metadata rendered by `TrackInfoCard`. "Add to Playlist" reuses the existing inline playlist picker by setting `openPickerId`.
+
+**Deezer track library persistence via localStorage**
+Search results added to the library were previously lost on page refresh — only the sample tracks and user-uploaded tracks survived. Deezer tracks are now written to `localStorage` under the key `deezer-library-tracks` (JSON array) on every add and loaded back on mount in `App.tsx`. This keeps the library consistent across sessions without requiring a backend endpoint or user authentication.
+
+---
+
+## Feature Branch — Pricing Mockup
+
+**Pricing page: design mockup on dedicated branch**
+`feature/pricing-mockup` holds a `PricingPage.tsx` component that renders as a full-screen portal over the main app. The page is clearly a mockup: a diagonal semi-transparent MOCKUP watermark spans the full page (Cormorant Garamond, `text-[18vw]`, `text-white/[0.022]`, `rotate-[-22deg]`), and a sticky amber banner explicitly states no payment infrastructure exists. Three tiers (Free / Pro / Max) are displayed but all CTAs are disabled. Cormorant Garamond (Google Fonts, added to `client/index.html`) is used for price numerals and edition marks to contrast with the existing Syne + JetBrains Mono stack. Max tier uses a custom gold accent (`#c9a96e`) distinct from the standard orange.

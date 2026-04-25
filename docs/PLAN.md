@@ -210,14 +210,14 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 ### Session 4B — Mobile Responsiveness ✅ COMPLETE
 > Fixed bottom-sheet player, swipe gestures (`react-swipeable`), 44px touch targets, touch seek on ProgressBar.
 
-### ~~Session 4C — Backlog + Architecture Docs~~ DEFERRED
-> Deferred in favour of upload persistence and AI chatbot (Phase 5).
+### Session 4C — Backlog + Architecture Docs ✅ COMPLETE
+> `docs/ARCHITECTURE.md` created; `PLANCHECKLIST.md`, `PLAN.md`, `DECISIONS.md` all updated to reflect Phase 6 state.
 
 ---
 
 ## Phase 5 — Feature Additions
 
-### Session 5B — Upload Persistence (Vercel Blob) 🔄 Code complete, pending env var
+### Session 5B — Upload Persistence (Vercel Blob) ✅ COMPLETE
 
 **Problem**: Uploaded files written to `/tmp` vanish on Vercel cold start or different device.
 
@@ -235,7 +235,7 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 
 ---
 
-### Session 5D — Upload Size Limit + Per-User Quota UI ⬜ NEXT
+### Session 5D — Upload Size Limit + Per-User Quota UI ✅ COMPLETE
 
 **Problems**:
 1. Files over ~5MB return 413 — multer has no file size cap set; Vercel Hobby plan caps function bodies at 4.5MB.
@@ -279,44 +279,27 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 
 ## Phase 6 — Playback Modes, Layout Overhaul, Cascade Delete, Extended Chat
 
-### Session 6A — Player Enhancements ⬜ NOT STARTED
+### Session 6A — Player Enhancements ✅ COMPLETE
 
-**Goals**: Shuffle, loop modes (track / queue), autoplay-next, and play-context (navigate within library or a specific playlist independently).
-
-**Key approach**: `useRef` for `shuffleRef`, `loopModeRef`, and `queueRef` so Howl's `onend` closure always sees latest values. `play(track, context?)` sets the queue on each play call.
-
-**Loop modes**: `none` (stop at end) → `track` (restart current) → `queue` (wrap to first) — cycled by a single button.
-
-**Files**: `client/src/hooks/usePlayer.ts`, `client/src/App.tsx`
-
-**Checkpoint**: Shuffle → next is random within queue; loop-track restarts; loop-queue wraps; playlist track → next/prev stays within that playlist.
+`usePlayer` rewritten with `useRef` for shuffle/loop/queue (Howl closure-safe). `play(track, context?)` sets queue on each call; `onend` handles loop-track restart, shuffle random pick, linear advance, queue-wrap, and stop. `toggleShuffle()` and `cycleLoop()` sync refs + state.
 
 ---
 
-### Session 6B — Desktop Layout Overhaul ⬜ NOT STARTED
+### Session 6B — Desktop Layout Overhaul ✅ COMPLETE
 
-**Goals**: Unified `PlayerBar` always visible at bottom (replaces `MobilePlayerBar` + embedded desktop card). Two tabs — Library (search/upload/tracks) and Playlists — in the main content area.
-
-**PlayerBar additions**: Shuffle button (orange when active), Loop cycle button, VolumeControl (desktop only).
-
-**Files**: `client/src/components/PlayerBar.tsx` (renamed), `client/src/App.tsx`
-
-**Checkpoint**: Desktop shows tabs; player bar always visible; shuffle/loop buttons work; VolumeControl present on desktop.
+Unified `PlayerBar` (renamed from `MobilePlayerBar`) always visible at bottom. Library / Playlists tab switcher in `App.tsx`. Shuffle (orange when active) + loop cycle buttons in `PlayerBar`. `VolumeControl` desktop-only via `hidden sm:flex`.
 
 ---
 
-### Session 6C — Cascade Delete + Extended Chat Actions ⬜ NOT STARTED
+### Session 6C — Cascade Delete + UX Polish ✅ COMPLETE
 
-**Cascade delete**: `removeTrackFromAllPlaylists(trackId)` added to `PlaylistContext`. Called from `handleDeleteTrack` — track disappears from every playlist it was in.
+`removeTrackFromAllPlaylists(trackId)` in `PlaylistContext` called on delete. Deezer tracks persisted to `localStorage` (`deezer-library-tracks`). Mouse-following `Tooltip` with `bottom` anchor. Mobile `⋮` context menu (portal) with Info bottom sheet, Add, Delete. Per-playlist filter/sort in `PlaylistPanel`.
 
-**New chat action types** (6 additions):
-- `pause`, `resume`, `skip`, `prev` — direct player controls
-- `set_volume` — e.g. `{ type: "set_volume", level: "0.5" }`
-- `search_and_play` — fetches `/api/search?q=...`, plays first result with `previewUrl`
+---
 
-**Files**: `client/src/contexts/PlaylistContext.tsx`, `client/src/App.tsx`, `server/src/routes/chat.ts`
+### Session feature/pricing-mockup — Mockup Pricing Page ✅ COMPLETE
 
-**Checkpoint**: Delete library track → removed from all playlists; chat pause/skip/volume/search-and-play all work with confirmation messages.
+`PricingPage.tsx` — full-screen portal overlay, 3 tiers (Free / Pro / Max), diagonal MOCKUP watermark (Cormorant Garamond), sticky amber "no payment" banner, all CTAs disabled. "Plans" button in app header on branch `feature/pricing-mockup`.
 
 ---
 
