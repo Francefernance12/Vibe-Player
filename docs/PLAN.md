@@ -303,6 +303,78 @@ Unified `PlayerBar` (renamed from `MobilePlayerBar`) always visible at bottom. L
 
 ---
 
+## Phase 7 — Optimization & Code Quality ⬜ NOT STARTED
+
+**Goal**: Systematically audit and improve performance, reduce redundant work, and enforce code best practices across the entire codebase. This phase is reviewed and executed by the **`perf-optimizer`** agent.
+
+> **Trigger**: This phase begins only when the user explicitly says **"go"**. Do not start any session work until that signal is given.
+
+---
+
+### Session 7A — Frontend Performance Audit ⬜ NOT STARTED
+
+**Scope**: `client/src/` — hooks, components, contexts.
+
+**Agent**: `perf-optimizer` on `client/src/hooks`, then `client/src/components`, then `client/src/contexts`.
+
+**Areas to audit**:
+- Unnecessary re-renders: components re-rendering on every parent update that don't need to
+- Missing `useMemo` / `useCallback` / `React.memo` on expensive computations or stable callbacks
+- Redundant API calls: `useEffect` fetches that fire more often than needed (e.g., `useQuota` not being debounced after rapid deletes)
+- `requestAnimationFrame` loop in `ProgressBar` — verify it is properly cancelled on unmount
+- `PlaylistContext` — `PUT /api/playlists/:id/tracks` fires on every reorder drag step; add debounce
+- `localStorage` reads on every render vs. reading once on mount
+- Bundle size regression check: run `rollup-plugin-visualizer` and compare against Phase 4A baseline (94 kB gzip)
+
+**Deliverables**:
+- Refactored files with documented changes
+- Updated tests to cover any changed behaviour
+- Lighthouse re-run (mobile) — target: maintain or improve Phase 4A scores (92/92/96/82)
+
+---
+
+### Session 7B — Backend Performance Audit ⬜ NOT STARTED
+
+**Scope**: `server/src/routes/`, `server/db/index.ts`.
+
+**Agent**: `perf-optimizer` on `server/src/routes`, then `server/db`.
+
+**Areas to audit**:
+- N+1 query risk in `GET /api/playlists` — currently loads playlists then tracks per playlist in separate calls; consider a single JOIN query
+- `getUserUploadedBytes` called on every upload AND every quota check — evaluate caching per request
+- `replacePlaylistTracks` uses a `db.batch()` write — verify atomicity and error handling if the batch partially fails
+- Auth middleware runs JWT verification on every request including public routes — verify early-exit paths are correct
+- Rate limiter in-memory store — document that it resets on cold start (Vercel); flag if this matters for abuse prevention
+- Missing indexes: `idx_playlists_user_id`, `idx_playlist_tracks_playlist_id`, `idx_uploaded_tracks_user_id` from `DATABASE_SCHEMA.md` are not yet applied — evaluate if query volume justifies adding them
+
+**Deliverables**:
+- Refactored DB helpers or route handlers with benchmarks/notes
+- Any new migration file if indexes are added (e.g., `005_add_indexes.sql`)
+- All 52 server tests still passing
+
+---
+
+### Session 7C — Code Quality Pass ⬜ NOT STARTED
+
+**Scope**: Full codebase.
+
+**Agent**: `perf-optimizer` (quality mode) across all changed files.
+
+**Areas to audit**:
+- Dead code: exported functions/types not imported anywhere
+- `client/src/types.ts` vs `shared/types.ts` divergence — evaluate consolidating to a single `Track` definition
+- Error handling gaps: any `fetch()` call without a `.catch()` or error state
+- Accessibility: interactive elements missing `aria-label` (already noted for `⋮` button in `REVIEW.md`)
+- Console statements left in production paths
+- TypeScript `any` or suppressed lint warnings that should be resolved
+
+**Deliverables**:
+- Cleaned-up files
+- Updated `docs/DECISIONS.md` with any consolidation decisions made
+- All 101 tests still passing
+
+---
+
 ## Quick Reference
 
 ```bash
