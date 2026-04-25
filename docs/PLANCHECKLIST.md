@@ -288,13 +288,27 @@ This file is the first thing any agent or collaborator should read to understand
 
 ### Session 7A — Frontend Performance Audit ✅ COMPLETE
 
-- ✅ `PlaylistContext.tsx` — `reorderPlaylist` debounced 400ms; state update stays immediate (optimistic), only the PUT is delayed
-- ✅ `useChat.ts` — `messagesRef` + `isLoadingRef` added; `sendMessage` reads via refs, removed `messages`/`isLoading` from `useCallback` dep array; `clearMessages` also clears ref
+- ✅ `useChat.ts` — stale closure fix: `messagesRef` + `isLoadingRef` added; `sendMessage` reads/writes via refs; `messages`/`isLoading` removed from dep array; `clearMessages` clears ref
+- ✅ `Tooltip.tsx` — replaced `pos` useState (60fps setState) with `posRef` + direct `cardRef.current.style` writes; `visible` boolean retained for show/hide
+- ✅ `PlaylistContext.tsx` — `reorderPlaylist` PUT debounced 400ms (`reorderDebounceRef`); state update remains immediate (optimistic)
 - ✅ `PlayerBar.tsx` — wrapped with `React.memo`
 - ✅ `ProgressBar.tsx` — wrapped with `React.memo`
-- ✅ `Tooltip.tsx` — `pos` state replaced with `posRef` + `cardRef`; `mousemove` writes directly to DOM style; `visible` boolean state retained for show/hide
-- ✅ `SearchBar.tsx` — `onSearching` added to `useEffect` dep array
-- ✅ 49 client tests pass; build: 344.87 kB raw / 105.28 kB gzip
+- ✅ `SearchBar.tsx` — `onSearching` added to `useEffect` dep array (was missing)
+- ✅ 49 client + 52 server tests pass; bundle 105 kB gzip
+
+---
+
+### Session 7B — Backend Performance Audit ✅ COMPLETE
+
+- ✅ `server/db/migrations/005_add_indexes.sql` — `CREATE INDEX IF NOT EXISTS` for `playlists(user_id)`, `playlist_tracks(playlist_id)`, `uploaded_tracks(user_id)`
+- ✅ `server/db/migrate.ts` — `db.execute` → `db.executeMultiple` so multi-statement migration files run correctly
+- ✅ `server/db/index.ts` — `getPlaylistsWithTracks` helper via single LEFT JOIN; `PlaylistWithTracks` interface exported
+- ✅ `server/src/routes/playlists.ts` — `GET /api/playlists` N+1 `Promise.all` replaced with single `getPlaylistsWithTracks` call
+- ✅ `server/db/index.ts` `replacePlaylistTracks` — accurate docstring confirming `db.batch('write')` is atomic; manual `BEGIN/COMMIT` must not be added
+- ✅ `server/src/middleware/auth.ts` — fast-path exit intent + `getJwtSecret()` fail-fast comments
+- ✅ `server/src/routes/chat.ts` — MemoryStore cold-start reset comment
+- ✅ `server/src/routes/tracks.ts` — per-request freshness comment for `getUserUploadedBytes`
+- ✅ 52 server tests pass
 
 ---
 
@@ -309,4 +323,5 @@ This file is the first thing any agent or collaborator should read to understand
 | 5C | 2026-04-23 | AI action reliability on 8B model; backtick-wrapped JSON dropped | ✅ Fixed: 70B model + parser hardening |
 | 6B | 2026-04-24 | Tab state lost on re-render; `playInternalRef` assigned during render | ⬜ Low risk, accepted |
 | 6C | 2026-04-24 | Tooltip transform/animation conflict causing placement issues | ✅ Fixed: bottom anchor approach |
-| 7A | 2026-04-25 | perf-optimizer: 2 high + 2 medium + 1 low issues found and fixed | ✅ All resolved |
+| 7A | 2026-04-25 | `PlayerBar` memo bypassed if parent passes inline callbacks; `SearchBar` dep fix is a behavioral change | ⬜ Low risk, accepted |
+| 7B | 2026-04-25 | `db.batch` already atomic — no code change needed; rate limiter resets on cold start (documented) | ✅ Documented |

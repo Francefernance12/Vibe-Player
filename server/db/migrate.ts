@@ -22,7 +22,8 @@ export async function runMigrations(db: Client): Promise<void> {
   for (const file of files) {
     if (already.has(file)) continue
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8')
-    await db.execute(sql)
+    // executeMultiple handles multi-statement migration files (e.g. index creation scripts)
+    await db.executeMultiple(sql)
     await db.execute({
       sql: 'INSERT INTO _migrations (filename, run_at) VALUES (?, ?)',
       args: [file, new Date().toISOString()],

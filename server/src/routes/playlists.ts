@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { v4 as uuidv4 } from 'uuid'
-import { getDb, getPlaylistsByUser, getPlaylistById, createPlaylist, deletePlaylist, getTracksByPlaylist, replacePlaylistTracks } from '../../db/index'
+import { getDb, getPlaylistById, createPlaylist, deletePlaylist, replacePlaylistTracks, getPlaylistsWithTracks } from '../../db/index'
 import { authMiddleware } from '../middleware/auth'
 import type { DbTrackSource } from '../../../shared/types'
 
@@ -9,16 +9,11 @@ const router = Router()
 // All playlist routes require auth
 router.use(authMiddleware)
 
-// GET /api/playlists — list all playlists with their tracks
+// GET /api/playlists — list all playlists with their tracks (single JOIN query)
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const db = getDb()
-    const playlists = await getPlaylistsByUser(db, req.user!.userId)
-    const result = await Promise.all(playlists.map(async p => {
-      const dbTracks = await getTracksByPlaylist(db, p.id)
-      const items = dbTracks.map(t => JSON.parse(t.track_data))
-      return { id: p.id, name: p.name, items }
-    }))
+    const result = await getPlaylistsWithTracks(db, req.user!.userId)
     res.json(result)
   } catch (err) { next(err) }
 })
