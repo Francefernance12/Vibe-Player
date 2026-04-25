@@ -16,6 +16,7 @@ import { RegisterPage } from './components/RegisterPage'
 import { ChatBubble } from './components/ChatBubble'
 import { ChatWindow } from './components/ChatWindow'
 import { StorageBar } from './components/StorageBar'
+import { PricingPage } from './components/PricingPage'
 import { useQuota } from './hooks/useQuota'
 import { filterAndSortTracks, SortOption } from './utils/trackFilter'
 
@@ -128,6 +129,7 @@ function Player() {
   const [searching, setSearching] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'library' | 'playlists'>('library')
+  const [showPricing, setShowPricing] = useState(false)
   const { quota, refresh: refreshQuota } = useQuota()
   const { playlists, addLocal, defaultPlaylistId, removeTrackFromAllPlaylists } = usePlaylist()
   const searchContainerRef = useRef<HTMLDivElement>(null)
@@ -287,7 +289,14 @@ function Player() {
           </div>
           {user && (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-zinc-600 truncate max-w-[140px]">{user.email}</span>
+              <button
+                onClick={() => setShowPricing(true)}
+                className="text-[10px] font-mono text-zinc-600 hover:text-orange-400 transition-colors tracking-wide"
+              >
+                Plans
+              </button>
+              <span className="text-zinc-800 text-xs">·</span>
+              <span className="text-xs text-zinc-600 truncate max-w-[120px]">{user.email}</span>
               <button
                 onClick={logout}
                 className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
@@ -374,6 +383,7 @@ function Player() {
         playlists={playlistSummaries}
         onAction={handleChatAction}
       />
+      {showPricing && <PricingPage onClose={() => setShowPricing(false)} />}
     </div>
   )
 }
