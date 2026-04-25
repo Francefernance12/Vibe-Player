@@ -1,6 +1,6 @@
 # Architecture & Library Decisions
 
-Decisions are grouped by phase and session in chronological order.
+Decisions are grouped by phase in chronological order. Each entry records what was chosen, what the alternatives were, and why.
 
 ---
 
@@ -21,7 +21,7 @@ Track IDs are generated at read-time (not stored), so uuid v4 is sufficient. No 
 Chosen over nodemon + ts-node for faster incremental rebuilds via transpile-only mode.
 
 **Vercel serverless: /tmp for uploads, process.cwd() for samples**
-Vercel's Lambda-based runtime has a read-only filesystem except for `/tmp`. Uploaded files are written to `/tmp` in production (ephemeral — cleared between invocations). Sample MP3s are bundled with the function via `vercel.json` `includeFiles` and accessed via `process.cwd()/server/samples`. Local dev uses `__dirname`-relative paths. Persistent upload storage (S3/Cloudflare R2) is a Phase 4 backlog item.
+Vercel's Lambda-based runtime has a read-only filesystem except for `/tmp`. Uploaded files are written to `/tmp` in production (ephemeral — cleared between invocations). Sample MP3s are bundled with the function via `vercel.json` `includeFiles` and accessed via `process.cwd()/server/samples`. Local dev uses `__dirname`-relative paths. Persistent upload storage replaced with Vercel Blob in Phase 5.
 
 ---
 
@@ -94,13 +94,12 @@ Both `PlaylistPanel` sections and the TrackList inline picker use `transition-[g
 
 ## Phase 3 — Authentication & Database
 
-### Session 3A — SQLite
+### Session 3A — Initial SQLite Setup (later replaced)
 
 **better-sqlite3 for SQLite**
 Chosen over `sqlite3` (callback-based, no TypeScript types out of the box) and over full ORMs (Prisma, Drizzle — overkill for this scale). `better-sqlite3` is synchronous, which simplifies migration runners and query helpers. Migrations are plain SQL files executed in filename order by a small custom runner (`server/db/migrate.ts`). The `_migrations` table tracks which files have already been applied, making the runner idempotent.
 
-**DB file at /tmp/music.db on Vercel**
-`getDb()` checks `process.env.VERCEL` and uses `/tmp/music.db` in production (Vercel's writable path). Local dev uses `path.join(__dirname, '../../db/music.db')`. Same pattern as uploads.
+> **Note**: `better-sqlite3` was replaced by `@libsql/client` in Phase 3B (Session 5A). The SQL schema and migration files were unchanged — only the driver and async call pattern changed.
 
 ---
 
@@ -123,7 +122,7 @@ JWTs expire after 7 days. No refresh token mechanism — logout clears the cooki
 A `AuthGate` component sits between `AuthProvider` and the player. It reads `user` and `loading` from context and renders `LoginPage`, `RegisterPage`, or the player accordingly. `showRegister` state inside `AuthGate` controls which form is shown; a `useEffect` resets it to `false` on logout so the user always returns to the login page.
 
 **PlaylistContext API sync strategy: full-replace PUT**
-`PUT /api/playlists/:id/tracks` replaces the entire track list on every mutation (add, remove, reorder). Simpler than differential sync — no conflict resolution needed at this scale. The client sends current state; the server overwrites. Debouncing reorder calls is a known improvement for Phase 4.
+`PUT /api/playlists/:id/tracks` replaces the entire track list on every mutation (add, remove, reorder). Simpler than differential sync — no conflict resolution needed at this scale. The client sends current state; the server overwrites. Debouncing reorder calls is a known improvement for a future phase.
 
 **Favorites playlist identified by name, not fixed ID**
 Server-side, each user's Favorites playlist has a UUID primary key (not a fixed `'favorites'` string). The frontend identifies it via `playlists.find(p => p.name === 'Favorites')?.id`. This works for the common case but is fragile if the user renames Favorites — a known limitation documented in `REVIEW.md`.
@@ -135,10 +134,13 @@ Express 4 does not auto-propagate rejected async handlers. Auth route handlers (
 
 ## Phase 3B — Database Hotfix
 
-### Session 5A — Persistent Database
+### Session 5A — SQLite → Turso (libSQL)
+
+**Root cause: Vercel containers are ephemeral**
+`better-sqlite3` wrote to `/tmp/music.db`. Each Vercel serverless invocation gets a fresh container with an empty `/tmp`, so a user registered in one request was invisible to a login request hitting a different container. This is not a bug — it is how serverless functions work.
 
 **Turso (libSQL) over SQLite file / better-sqlite3**
-`better-sqlite3` wrote to `/tmp/music.db` on Vercel. Each serverless invocation gets a fresh container with an empty `/tmp`, so a user registered in one request was invisible to a login request in the next container. Replaced with `@libsql/client` pointing to a Turso-hosted SQLite instance (`libsql://...turso.io`). The SQL schema and migration files are unchanged — only the driver and call pattern changed (sync → async). Turso's free tier covers this project's needs, and the libSQL wire protocol is compatible with the existing SQLite migrations.
+Replaced with `@libsql/client` pointing to a Turso-hosted SQLite instance (`libsql://…turso.io`). The SQL schema and migration files are unchanged — only the driver and call pattern changed (sync → async). Turso's free tier covers this project's needs, and the libSQL wire protocol is fully compatible with the existing SQLite migrations.
 
 **Async DB helpers throughout**
 `better-sqlite3` is synchronous; `@libsql/client` is Promise-based. All DB helper functions in `server/db/index.ts` are now `async`. Route handlers already used `async/await`, so only `await` keywords and `next: NextFunction` additions were needed. No architectural changes to the Express layer.
@@ -153,7 +155,7 @@ Migrations and the `PRAGMA foreign_keys = ON` call are async and must be awaited
 
 ## Phase 5 — Feature Additions
 
-### Session 5B — Upload Persistence
+### Session 5B — Upload Persistence (Vercel Blob)
 
 **Vercel Blob over ephemeral `/tmp` for uploaded files**
 `multer.diskStorage` wrote to `/tmp` on Vercel, which is cleared between container invocations — uploaded tracks would 404 after a cold start or from a different device. Replaced with `@vercel/blob`: `put()` uploads the file buffer directly to Vercel's CDN and returns a permanent public URL. The blob URL is stored in a new Turso table (`uploaded_tracks`) keyed by `user_id`, so each user's uploads persist across sessions and devices. Sample tracks continue to be served from the bundled filesystem via the streaming endpoint.
@@ -169,32 +171,10 @@ Unauthenticated requests return sample tracks only. Authenticated requests appen
 
 ---
 
-## AI Workflow & Tooling
+### Session 5C — AI Music Assistant Chatbot
 
-**Claude Code (claude CLI) as primary development agent**
-Used for all code generation, refactoring, and implementation. Runs in the project directory with access to file tools, bash, and MCP servers. Project instructions are in `CLAUDE.md` and enforced every session.
-
-**OpenCode (opencode/big-pickle) as commit reviewer**
-A separate sub-agent invoked via the `/commitReview` slash command at the end of each session. It reads git history, writes `docs/REVIEW.md`, and creates GitHub PRs. Kept separate from Claude Code so the reviewer has no bias toward the code it is reviewing.
-
-**GitHub MCP server**
-Enables Claude Code to interact with the GitHub API directly (list PRs, create branches, read files) without shelling out to `gh`. Configured in Claude Code MCP settings. Used from Session 2A onward.
-
-**Context7 MCP server**
-Provides up-to-date library documentation fetched at query time. Used when Claude Code needs current API references for Howler.js, Vite, Express, or Vercel — training data cutoffs can lag behind library releases.
-
-**frontend-design plugin skill**
-Generates high-quality, production-grade UI code with a distinct visual style. Applied when building React components to avoid generic AI-default aesthetics.
-
-**vercel-react-best-practices skill**
-A curated set of Vercel engineering rules (re-render avoidance, ref-based transient values, memoization, bundle hygiene). Consulted before writing any React component. The ProgressBar's ref-based tick update is a direct result of this skill's `rerender-use-ref-transient-values` rule.
-
----
-
-## Phase 5 — Session 5C — AI Chatbot
-
-**Groq + `llama-3.1-8b-instant`**
-Free-tier inference at ~750 tok/s. Chosen over OpenRouter for simpler integration (official `groq-sdk`), no credit card required on free tier, and adequate speed without streaming.
+**Groq + `llama-3.1-8b-instant` (later upgraded)**
+Free-tier inference at ~750 tok/s. Chosen over OpenRouter for simpler integration (official `groq-sdk`), no credit card required on free tier, and adequate speed without streaming. Later upgraded to `llama-3.3-70b-versatile` — see Session 6C.
 
 **`express-rate-limit` keyed on `req.user.userId`**
 Rate limiting per authenticated user rather than per IP avoids false-positives on shared IPs (offices, NAT). Auth middleware runs before the limiter so `req.user` is always populated by the time the key is generated. `validate: { xForwardedForHeader: false }` suppresses a spurious IPv6 warning on Vercel.
@@ -204,7 +184,7 @@ TypeScript widens object literal property values to `string` when spread into an
 
 ---
 
-## Phase 5 — Session 5D — Upload Limits + Quota
+### Session 5D — Upload Limits + Per-User Quota
 
 **50MB multer file size limit**
 Default multer memoryStorage has no file size cap. Files over the Express default body limit (or Vercel's 4.5MB Hobby cap) return 413 with no clear message. Setting `limits: { fileSize: 50 * 1024 * 1024 }` makes multer reject oversized files with a consistent 413 and an error message before buffering the entire body. Chosen over a lower cap to give free-tier users headroom for lossless audio files.
@@ -231,7 +211,9 @@ Howl's `onend` callback is captured in a closure when the `Howl` is created. If 
 Rather than always navigating the full library on next/prev, `play(track, context?)` optionally sets `queueRef` to a caller-supplied list (e.g., a playlist's items, or the current filtered library view). This cleanly separates "what is playing" from "what queue is being navigated", enabling shuffle to work independently within either context without mixing library and playlist tracks.
 
 **Loop mode cycle: none → track → queue**
-Three modes rather than a binary toggle. `none` = stop at end. `track` = restart current song (Howl seek(0)). `queue` = wrap from last to first. Cycled with a single button to avoid UI clutter. The mode is displayed as a changing icon (→ / 🔂 / 🔁).
+Three modes rather than a binary toggle. `none` = stop at end. `track` = restart current song (Howl `seek(0)`). `queue` = wrap from last to first. Cycled with a single button to avoid UI clutter.
+
+---
 
 ### Session 6B — Desktop Layout
 
@@ -241,6 +223,8 @@ The mobile fixed bottom bar (`sm:hidden`) and the desktop embedded player card (
 **Tabs (Library | Playlists) on desktop**
 Separates upload/search/library actions from playlist management — previously everything was stacked vertically, making the page long and hard to navigate with many playlists. Tabs are client-side state only (no routing) to keep the app single-page without React Router.
 
+---
+
 ### Session 6C — Cascade Delete + UX Polish
 
 **Cascade delete via `removeTrackFromAllPlaylists` in PlaylistContext**
@@ -249,7 +233,7 @@ When a track is deleted from the library, it should disappear from all playlists
 **Chat action expansion: 6 new types**
 Added `pause`, `resume`, `skip`, `prev`, `set_volume`, and `search_and_play` to the assistant's action vocabulary. `search_and_play` is the most complex: it fetches `/api/search?q=...` on the client and plays the first result with a `previewUrl` — combining the existing search and play flows. Volume is passed as a float string (`"0.7"`) since all action payloads are strings in the JSON schema.
 
-**Model: `llama-3.3-70b-versatile` (upgraded from 8B in Session 5E)**
+**Model upgrade: `llama-3.3-70b-versatile`**
 Switched from `llama-3.1-8b-instant` to `llama-3.3-70b-versatile` for reliably following structured action tag instructions. Still on Groq free tier. The larger model is necessary as the action vocabulary grows — a 6-rule prompt with placeholders is too complex for an 8B model to follow consistently.
 
 **Tooltip positioning: `bottom` anchor + `onMouseMove`**
@@ -270,3 +254,25 @@ Search results added to the library were previously lost on page refresh — onl
 
 **Pricing page: design mockup on dedicated branch**
 `feature/pricing-mockup` holds a `PricingPage.tsx` component that renders as a full-screen portal over the main app. The page is clearly a mockup: a diagonal semi-transparent MOCKUP watermark spans the full page (Cormorant Garamond, `text-[18vw]`, `text-white/[0.022]`, `rotate-[-22deg]`), and a sticky amber banner explicitly states no payment infrastructure exists. Three tiers (Free / Pro / Max) are displayed but all CTAs are disabled. Cormorant Garamond (Google Fonts, added to `client/index.html`) is used for price numerals and edition marks to contrast with the existing Syne + JetBrains Mono stack. Max tier uses a custom gold accent (`#c9a96e`) distinct from the standard orange.
+
+---
+
+## AI Workflow & Tooling
+
+**Claude Code (claude CLI) as primary development agent**
+Used for all code generation, refactoring, and implementation. Runs in the project directory with access to file tools, bash, and MCP servers. Project instructions are in `CLAUDE.md` and enforced every session.
+
+**OpenCode (opencode/big-pickle) as commit reviewer**
+A separate sub-agent invoked via the `/commitReview` slash command at the end of each session. It reads git history, writes `docs/REVIEW.md`, and creates GitHub PRs. Kept separate from Claude Code so the reviewer has no bias toward the code it is reviewing.
+
+**GitHub MCP server**
+Enables Claude Code to interact with the GitHub API directly (list PRs, create branches, read files) without shelling out to `gh`. Configured in Claude Code MCP settings. Used from Session 2A onward.
+
+**Context7 MCP server**
+Provides up-to-date library documentation fetched at query time. Used when Claude Code needs current API references for Howler.js, Vite, Express, or Vercel — training data cutoffs can lag behind library releases.
+
+**frontend-design plugin skill**
+Generates high-quality, production-grade UI code with a distinct visual style. Applied when building React components to avoid generic AI-default aesthetics.
+
+**vercel-react-best-practices skill**
+A curated set of Vercel engineering rules (re-render avoidance, ref-based transient values, memoization, bundle hygiene). Consulted before writing any React component. The ProgressBar's ref-based tick update is a direct result of this skill's `rerender-use-ref-transient-values` rule.
