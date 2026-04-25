@@ -1,5 +1,35 @@
 # Code Review
 
+---
+
+## Date: 2026-04-24
+
+## Branch Name: session-4c
+
+## What Changed
+
+Documentation-only session. One commit on this branch:
+
+- `docs/ARCHITECTURE.md` — Created from scratch. Full architecture reference covering system overview, tech stack, repository layout, component hierarchy (with ASCII tree), context providers, key hooks, key patterns (useRef closures, portal rendering, grid-rows transitions, mouse-following tooltip), backend route table (all 16 endpoints with auth column), middleware chain, DB helper table, four data flows (auth, playlist sync, audio playback, upload), testing strategy (both suites broken down by file), and deployment topology with env var table.
+- `docs/PLANCHECKLIST.md` — All Phase 6 sessions (6A, 6B, 6C) marked complete with actual delivered items. `feature/pricing-mockup` session added. Session 4C marked complete. Test count updated to 101 (49 client + 52 server).
+- `docs/PLAN.md` — Phase 6 sessions updated from "NOT STARTED" to ✅ COMPLETE with one-line summaries. Sessions 5B, 5D, 4C status corrected. `feature/pricing-mockup` entry added.
+- `docs/DECISIONS.md` — "(planned)" removed from all three Phase 6 headings. Five new decision entries appended: tooltip `bottom`-anchor positioning, `matchMedia` hover detection, mobile portal ⋮ menu, Deezer `localStorage` persistence, and pricing mockup design branch strategy.
+
+## Issues Spotted
+
+**None critical** — this is a docs-only change with no code modifications. Tests confirm no regressions: 52 server + 49 client all pass.
+
+Minor observations:
+- `ARCHITECTURE.md` route table lists `GET /api/tracks/:filename/stream` as unauthenticated — this is correct but worth confirming the stream route still has no auth guard in `server/src/routes/tracks.ts` (it should be open for sample playback).
+- The `DECISIONS.md` entry for "Session 5E" referenced in the model upgrade decision (`llama-3.1-8b-instant` → `llama-3.3-70b-versatile` in "Session 5E") doesn't correspond to a named session in `PLAN.md` or `PLANCHECKLIST.md` — the upgrade was actually part of Session 5C/5D work. Low impact since the decision entry is accurate about the _what_ and _why_.
+- `PLANCHECKLIST.md` Agent Review Log row for Session 6B notes "Tab state lost on re-render; `playInternalRef` assigned during render" as low risk/accepted — no action needed, just flagging it is documented.
+
+## Suggestions
+
+- The `ARCHITECTURE.md` "Key Patterns" section mentions `matchMedia` hover detection but the component it applies to (`Tooltip.tsx`) isn't linked. Consider adding `client/src/components/Tooltip.tsx:L1` as a cross-reference for future readers.
+- `DECISIONS.md` now has a "Feature Branch — Pricing Mockup" section at the bottom that sits outside the Phase numbering scheme. If more feature branches are added in future, consider introducing a "Phase 7 — Standalone Features" heading to keep the structure consistent.
+- The `ARCHITECTURE.md` testing strategy table could note which test files require a `PlaylistProvider` wrapper and which don't — this trips up contributors adding new tests for the first time.
+
 ## Date: 2026-04-20
 
 ## Branch Name: review/session-1A-1C

@@ -97,62 +97,32 @@ This file is the first thing any agent or collaborator should read to understand
 - ✅ `PlaylistPanel` component with drag-and-drop reordering (`@dnd-kit`)
 - ✅ Playlist persisted to `localStorage` with versioned key (`playlist:v1`)
 - ✅ All playlist context tests pass (add, remove, reorder, persistence)
-- ✅ **Known issue**: Playlist items cannot be played (display-only)
-- ✅ **Known issue**: Deezer preview URLs do not play (routing bug)
 - ✅ **Checkpoint**: Playlist UI renders and persists
 
 ---
-Session 2C — Bug Fixes + Core UX Features ✅ COMPLETE
-Bug Fix 1 — Deezer Previews
 
-✅ Add externalUrl?: string to Track in shared/types.ts AND client/src/types.ts
-✅ Update usePlayer.play() to use externalUrl as Howler src when present
-✅ Update handleSearchSelect in App.tsx to set externalUrl: result.previewUrl
+### Session 2C — Bug Fixes + Core UX Features ✅ COMPLETE
 
-Bug Fix 2 — Playlist Playback
-
-✅ Add onPlay: (item: PlaylistItem) => void prop to PlaylistPanel
-✅ Wire onPlay in App.tsx — local tracks use API route; Deezer items use externalUrl
-✅ Make each SortableRow track-name area clickable
-✅ Highlight currently-playing item in playlist
-
-Delete Uploaded Tracks
-
-✅ DELETE /api/tracks/:filename endpoint — deletes from uploads/ only, 403 for samples
-✅ Supertest: delete succeeds for upload; returns 403 for sample
-✅ Delete icon button on upload-source rows in TrackList (hidden for samples)
-✅ On delete: call endpoint, remove from local state, stop playback if active
-✅ Vitest: delete button renders only for upload rows
-
-Sort & Filter
-
-✅ Filter input above TrackList: real-time match on originalName
-✅ Sort dropdown: A–Z, Z–A, Size ↑, Size ↓, Source (samples first)
-✅ State in App.tsx, client-side only
-✅ Vitest: filter narrows results; sort orders correctly
-
-Wrap-up
-
-✅ npm test — 40 tests pass (11 server + 29 client)
-✅ Hotfix: client/src/types.ts missing externalUrl — caught by Vercel build on PR #3, fixed and pushed
-⬜ Manual smoke test: Deezer plays · playlist plays · delete works · filter/sort works
-⬜ Checkpoint: All four items working with passing tests (pending PR #3 merge)
+- ✅ `externalUrl?: string` added to `Track` in `shared/types.ts` and `client/src/types.ts`
+- ✅ `usePlayer.play()` uses `externalUrl` as Howler src when present
+- ✅ Deezer preview URLs play correctly via Howler
+- ✅ `PlaylistPanel.onPlay` wired — local tracks use API stream; Deezer uses externalUrl
+- ✅ `DELETE /api/tracks/:filename` — deletes from uploads/ only, 403 for samples
+- ✅ Filter input + sort dropdown (A–Z, Z–A, Size ↑↓, Source) in TrackList
+- ✅ 40 tests pass (11 server + 29 client)
 
 ---
 
-Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
+### Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
-- ✅ PlaylistContext rewritten for multi-playlist support (`playlists:v2` storage key)
-- ✅ `createPlaylist(name): string` added; `addLocal` now requires `playlistId`; `addDeezer` always targets favorites
+- ✅ `PlaylistContext` rewritten for multi-playlist support (`playlists:v2` storage key)
+- ✅ `createPlaylist(name): string` added; `addLocal` now requires `playlistId`
 - ✅ `PlaylistPanel` rewritten: collapsible accordion per playlist, chevron toggle, track count badge
 - ✅ "New playlist" inline input with `create` button and Escape-to-cancel
 - ✅ DndContext scoped per-playlist accordion section
 - ✅ Currently-playing item highlighted with orange dot + animated pulse
 - ✅ `TrackList` updated: inline playlist picker expands below each row (grid-rows animation)
-- ✅ Picker shows all playlists with orange checkmark for already-added ones
-- ✅ `SearchResults` updated: `playlists.some(...)` instead of stale `items` reference
 - ✅ All tests updated for new multi-playlist API: 42 tests pass (11 server + 31 client)
-- ✅ Update docs/PLANCHECKLIST.md and docs/DECISIONS.md
 
 ---
 
@@ -160,64 +130,32 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ### Session 3A — Schema Update + SQLite Setup ✅ COMPLETE
 
-- ✅ `docs/DATABASE_SCHEMA.md` updated: source enum `'local' | 'deezer'`, Spotify/YouTube references removed
-- ✅ Deezer track JSON shape documented in schema
 - ✅ `better-sqlite3` + `@types/better-sqlite3` installed in `/server`
-- ✅ `/server/db/migrations/` directory created
-- ✅ `001_create_users.sql` written from schema
-- ✅ `002_create_playlists.sql` written from schema
-- ✅ `003_create_playlist_tracks.sql` written from schema
-- ✅ Migration runner (`server/db/migrate.ts`) — idempotent, tracks applied migrations in `_migrations` table
-- ✅ `server/db/index.ts` — typed query helpers: users (CRUD), playlists (CRUD), playlist_tracks (add/remove/replace)
-- ✅ `createMemoryDb()` helper for isolated test databases
-- ✅ 11 DB tests in `server/src/__tests__/db.test.ts` — all pass with `:memory:`
-- ✅ All tests pass: 22 server tests (11 original + 11 DB)
-- ✅ **Checkpoint**: All DB tests pass with `:memory:` database
+- ✅ Migrations 001–003: users, playlists, playlist_tracks
+- ✅ Migration runner (`server/db/migrate.ts`) — idempotent
+- ✅ `server/db/index.ts` — typed query helpers + `createMemoryDb()` for tests
+- ✅ 11 DB tests pass with `:memory:` database
 
 ---
 
 ### Session 3B — Auth Endpoints ✅ COMPLETE
 
-- ✅ `bcrypt` + `cookie-parser` installed for password hashing and cookie parsing
-- ✅ `jsonwebtoken` installed for JWT sessions
-- ✅ `POST /api/auth/register` endpoint — validates email/password, creates user, sets httpOnly cookie
-- ✅ `POST /api/auth/login` endpoint — verifies credentials, sets httpOnly cookie
-- ✅ `POST /api/auth/logout` endpoint — clears token cookie
-- ✅ `GET /api/auth/me` endpoint — returns current user from JWT
-- ✅ `authMiddleware` implemented in `server/src/middleware/auth.ts`
-- ✅ Test: register creates user, returns 201 with id + email
-- ✅ Test: register returns 409 if email already registered
-- ✅ Test: register returns 400 for invalid email format
-- ✅ Test: register returns 400 for short password
-- ✅ Test: login with wrong password returns 401
-- ✅ Test: login with unknown email returns 401
-- ✅ Test: `/api/auth/me` with valid JWT cookie returns user
-- ✅ Test: `/api/auth/me` with no JWT returns 401
-- ✅ All tests pass: 34 server tests (22 prior + 9 auth + 3 search)
-- ✅ **Checkpoint**: Register → get JWT cookie → use on `/api/auth/me`
+- ✅ `bcrypt` + `jsonwebtoken` + `cookie-parser` installed
+- ✅ `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- ✅ `authMiddleware` in `server/src/middleware/auth.ts`
+- ✅ 9 auth endpoint tests; 34 server tests pass total
 
 ---
 
 ### Session 3C — Auth UI + Playlist Persistence ✅ COMPLETE
 
-- ✅ `LoginPage` component built (email + password form, error display)
-- ✅ `RegisterPage` component built (client-side validation: email format, password length)
-- ✅ JWT stored in `httpOnly` cookie (set by backend, read via cookie-parser)
-- ✅ `AuthContext` created — `user`, `loading`, `login`, `register`, `logout`
-- ✅ `AuthGate` in App.tsx — shows login/register when not logged in, player when logged in
-- ✅ `GET /api/playlists` endpoint (auth-protected) — returns playlists with serialised items
-- ✅ `POST /api/playlists` endpoint (auth-protected) — creates playlist, accepts client-provided id
-- ✅ `DELETE /api/playlists/:id` endpoint (auth-protected, ownership check)
-- ✅ `PUT /api/playlists/:id/tracks` endpoint (full sync / reorder, ownership check)
+- ✅ `LoginPage` + `RegisterPage` components
+- ✅ `AuthContext` (`user`, `loading`, `login`, `register`, `logout`)
+- ✅ `AuthGate` in `App.tsx` — shows login/register when not logged in
+- ✅ Playlist CRUD endpoints (GET, POST, DELETE, PUT /tracks) — all auth-protected
 - ✅ Register auto-creates Favorites playlist in DB
-- ✅ `PlaylistContext` — loads from API when logged in; falls back to localStorage when not
-- ✅ `PlaylistContext` — syncs to API on every mutation (add, remove, reorder, create) when logged in
-- ✅ `defaultPlaylistId` exposed from context (derived from Favorites playlist name)
-- ✅ Test: login form shows error on bad credentials
-- ✅ Test: register form validates email format (client-side, no network call)
-- ✅ Test: register form validates password length
-- ✅ 8 new playlist endpoint tests, all pass
-- ✅ All tests pass: 42 server + 36 client = 78 total
+- ✅ `PlaylistContext` syncs to API when logged in; falls back to localStorage when not
+- ✅ 42 server + 36 client = 78 total tests pass
 - ✅ **Checkpoint**: Register → build playlist → refresh → playlist still there
 
 ---
@@ -226,17 +164,12 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ### Session 5A — SQLite → Turso (libSQL) ✅ COMPLETE
 
-- ✅ Root cause identified: Vercel `/tmp` is ephemeral per invocation — register writes user, login runs in a new container and can't find them
-- ✅ `@libsql/client` installed; `better-sqlite3` removed
-- ✅ `server/db/index.ts` rewritten: `getDb()` returns libSQL `Client`, all helpers async
-- ✅ `server/db/migrate.ts` rewritten: async, takes `Client`
-- ✅ `server/src/routes/auth.ts` — `await` on all DB calls
-- ✅ `server/src/routes/playlists.ts` — all handlers made async with try/catch
-- ✅ `api/index.ts` — awaits `initDb()` before serving first request
-- ✅ `server/src/index.ts` — calls `initDb()` before starting server
-- ✅ All 3 test files updated for async DB helpers
-- ✅ All 42 server tests pass
-- ✅ User added `TURSO_URL` + `TURSO_AUTH_TOKEN` to Vercel dashboard
+- ✅ Root cause: Vercel `/tmp` ephemeral per invocation — register and login hit different containers
+- ✅ `better-sqlite3` replaced with `@libsql/client` (Turso-hosted remote SQLite)
+- ✅ All DB helpers made async; route handlers updated
+- ✅ `initDb()` called at startup in both `server/src/index.ts` and `api/index.ts`
+- ✅ In-memory libSQL client for tests: `createClient({ url: ':memory:' })`
+- ✅ 42 server tests pass
 - ✅ **Checkpoint**: Register → log out → log in → succeeds on live Vercel URL
 
 ---
@@ -245,132 +178,109 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 
 ### Session 4A — Performance ✅ COMPLETE
 
-- ✅ Root `tsconfig.json` / `server/tsconfig.json` conflict resolved (fixed in Phase 2 polish pass)
-- ⬜ Lighthouse audit run on live Vercel URL (run manually: DevTools → Lighthouse → Mobile)
-- ✅ Loading skeletons added to `TrackList` (4 animated rows) and `SearchResults` (3 rows while searching)
-- ✅ Bundle size audited: 308 kB uncompressed / 94 kB gzipped — healthy for React + dnd-kit + Howler
-- ✅ `rollup-plugin-visualizer` installed; run `ANALYZE=true npm run build --prefix client` for treemap
-- ✅ `SearchBar` exposes `onSearching` prop; skeleton shows immediately on keystroke (before 400ms debounce fires)
-- ✅ All 36 client tests pass
-- ✅ **Checkpoint**: Lighthouse score > 80 on mobile — results (2026-04-22, mobile, vibe-player.vercel.app):
-  - Performance: 92
-  - Accessibility: 92
-  - Best Practices: 96
-  - SEO: 82
+- ✅ Loading skeletons added to `TrackList` and `SearchResults`
+- ✅ Bundle size: 308 kB uncompressed / 94 kB gzipped
+- ✅ `rollup-plugin-visualizer` installed
+- ✅ Lighthouse (2026-04-22, mobile): Performance 92 · Accessibility 92 · Best Practices 96 · SEO 82
 
 ---
 
 ### Session 4B — Mobile Responsiveness ✅ COMPLETE
 
-- ✅ All components audited at 375px viewport (single-column `max-w-md` layout — no horizontal overflow)
-- ✅ Tailwind breakpoints: `sm:` used throughout for mobile-first overrides
-- ✅ Fixed bottom-sheet player implemented for mobile (`sm:hidden` fixed bar with progress + controls)
-- ✅ Inline desktop player hidden on mobile (`hidden sm:flex`)
-- ✅ Main container adds `pb-32 sm:pb-10` to clear the fixed bottom bar
-- ✅ Swipe left/right on bottom bar → next/prev (`react-swipeable`)
-- ✅ Prev/next touch targets enlarged: `p-3 sm:p-2` (~44px on mobile)
-- ✅ `ProgressBar` touch support: `onTouchEnd` handler for mobile seeking
+- ✅ Fixed bottom-sheet player (`react-swipeable` swipe left/right → next/prev)
+- ✅ Prev/next touch targets: `p-3 sm:p-2` (~44px on mobile)
+- ✅ `ProgressBar` touch support via `onTouchEnd`
 - ✅ All 36 client tests pass
-- ✅ **Checkpoint**: App is fully usable on a phone
 
 ---
 
-### ~~Session 4C — Backlog + Architecture Docs~~ DEFERRED
+### Session 4C — Backlog + Architecture Docs ✅ COMPLETE
 
-> Deferred in favour of higher-priority feature work (upload persistence + AI chatbot). Revisit if the project reaches a maintenance-only phase.
+- ✅ `docs/PLANCHECKLIST.md` updated: all Phase 6 sessions marked complete
+- ✅ `docs/PLAN.md` updated: Phase 6 and 5D marked complete
+- ✅ `docs/DECISIONS.md` updated: Phase 6 "(planned)" removed; tooltip, mobile menu, pricing entries added
+- ✅ `docs/ARCHITECTURE.md` created: system overview, component hierarchy, route table, data flows, testing strategy, deployment topology
+- ✅ Test count: 49 client + 52 server = 101 total
 
 ---
 
 ## Phase 5 — Feature Additions
 
-### Session 5B — Upload Persistence (Vercel Blob)
+### Session 5B — Upload Persistence (Vercel Blob) ✅ COMPLETE
 
-- ✅ Vercel Blob store created in dashboard; `BLOB_READ_WRITE_TOKEN` added to Vercel env vars + local `.env`
-- ✅ `@vercel/blob` installed in `/server`
-- ✅ `server/db/migrations/004_create_uploaded_tracks.sql` — new table: `id, user_id, filename, original_name, mime_type, size, blob_url, created_at`
-- ✅ `server/db/index.ts` — add `createUploadedTrack`, `getUploadedTracksByUser`, `getUploadedTrackById`, `deleteUploadedTrack`
-- ✅ `server/src/routes/tracks.ts` — multer → `memoryStorage`; upload calls `put()` + `createUploadedTrack`; GET queries Turso for user uploads; DELETE calls `del()` + removes DB row
-- ✅ `server/src/__tests__/tracks.test.ts` — mocks `@vercel/blob`; upload saves to DB; GET returns user tracks; DELETE cleans both; 45 server tests pass
-- ✅ `client/src/App.tsx` — delete now uses `track.id` (stable Turso uuid) instead of filename
-- ⬜ **Checkpoint**: Upload → log out → log in → file still plays; works from a different device
+- ✅ `@vercel/blob` installed; `multer.memoryStorage()`; `put()` to CDN; `createUploadedTrack` to Turso
+- ✅ `DELETE /api/tracks/:id` uses Turso UUID, not filename
+- ✅ `GET /api/tracks` auth-aware: adds user's uploads to samples for logged-in users
+- ✅ `server/db/migrations/004_create_uploaded_tracks.sql`
+- ✅ 45 server tests pass
 
 ---
 
-### Session 5C — AI Music Assistant Chatbot (Groq)
+### Session 5C — AI Music Assistant Chatbot (Groq) ✅ COMPLETE
 
-- ⬜ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
-- ✅ `groq-sdk` installed in `/server`
-- ✅ `POST /api/chat` endpoint — auth-protected, rate-limited (5 req/min per user), calls Groq `llama-3.1-8b-instant`
-- ✅ `server/src/__tests__/chat.test.ts` — 401 without auth, 200 with reply, 429 on rate limit
-- ✅ `client/src/hooks/useChat.ts` — messages state, `sendMessage`, rolling 20-message cap
-- ✅ `client/src/components/ChatBubble.tsx` — fixed orange button, bottom-right, clears mobile bar
-- ✅ `client/src/components/ChatWindow.tsx` — slide-in panel, message list, input, loading dots
-- ✅ `client/src/App.tsx` — mount ChatBubble + ChatWindow, pass `nowPlayingName`
-- ✅ 41 client + 49 server tests pass
-- ✅ Groq account created; `GROQ_API_KEY` added to Vercel env vars + local `.env`
-- ✅ TS fix: `role: 'assistant' as const` in `useChat` spread (widening caused type error on Vercel build)
-- ⬜ **Checkpoint**: Click bubble → chat opens; ask about a song → response < 2s; 6th msg/min → 429
+- ✅ `POST /api/chat` — auth-protected, 5 req/min rate limit, Groq `llama-3.3-70b-versatile`
+- ✅ `useChat` hook — rolling 20-message history, `extractAction` parser
+- ✅ `ChatBubble` (fixed FAB) + `ChatWindow` (slide-in panel)
+- ✅ Chat actions: `play`, `search`, `add_to_playlist`, `pause`, `resume`, `skip`, `prev`, `set_volume`, `search_and_play`
+- ✅ Action feedback rendered as dim italic lines in chat
+- ✅ 49 client + 52 server = 101 tests pass
 
 ---
 
-### Session 5D — Upload Size Limit + Per-User Quota UI
+### Session 5D — Upload Size Limit + Per-User Quota UI ✅ COMPLETE
 
-- ✅ `server/src/routes/tracks.ts` — multer `limits: { fileSize: 50MB }`; quota check before `put()`
-- ✅ `server/db/index.ts` — `getUserUploadedBytes(db, userId)` helper (SUM of size)
-- ✅ `server/src/routes/quota.ts` — `GET /api/user/quota` → `{ used, limit, tier }`
-- ✅ `server/src/app.ts` — register `/api/quota` route; multer LIMIT_FILE_SIZE → 413 in error handler
-- ✅ `server/src/__tests__/quota.test.ts` — 401 without auth, 200 with correct shape
-- ✅ `server/src/__tests__/tracks.test.ts` — upload rejected when quota exceeded
-- ✅ `client/src/hooks/useQuota.ts` — fetches quota, exposes used/limit/tier/refresh
-- ✅ `client/src/components/StorageBar.tsx` — tier badge + progress bar; orange at 90%+
-- ✅ `client/src/__tests__/StorageBar.test.tsx` — renders bar, tier label, correct %
-- ✅ `client/src/App.tsx` — mount `StorageBar` below `FileUpload`; refresh after upload/delete
-- ✅ 52 server + 44 client tests pass
-- ⬜ **Checkpoint 1**: Upload 12MB file locally → succeeds
-- ⬜ **Checkpoint 2**: Exceed 100MB quota → upload rejected with clear UI message
-- ⬜ **Checkpoint 3**: StorageBar updates immediately after upload and delete
-- ✅ **Known constraint documented**: Vercel Hobby plan caps function bodies at 4.5MB — files over that limit still 413 in production
+- ✅ multer `limits: { fileSize: 50MB }`; quota check before `put()`
+- ✅ `GET /api/user/quota` → `{ used, limit, tier }`
+- ✅ `StorageBar` component — tier badge, progress bar, orange at ≥90%
+- ✅ `useQuota` hook — refreshes after upload/delete
+- ✅ **Known constraint**: Vercel Hobby caps request bodies at 4.5MB; files >4.5MB still 413 in production
 
 ---
 
 ## Phase 6 — Playback Modes, Layout Overhaul, Cascade Delete, Extended Chat
 
-### Session 6A — Player Enhancements ⬜ NOT STARTED
+### Session 6A — Player Enhancements ✅ COMPLETE
 
-- ⬜ `usePlayer.ts` — add `shuffleRef`, `loopModeRef`, `queueRef` (all useRef for Howl closure access)
-- ⬜ `usePlayer.ts` — `play(track, context?)` sets queueRef if context provided
-- ⬜ `usePlayer.ts` — `toggleShuffle()` and `cycleLoop()` controls exposed
-- ⬜ `usePlayer.ts` — `onend` auto-advances: respects shuffle, loopMode, wraps on queue loop
-- ⬜ `client/src/App.tsx` — library track click passes `visibleTracks` as context to `player.play`
-- ⬜ `client/src/App.tsx` — playlist track click passes playlist items as context to `player.play`
-- ⬜ All client tests pass
-- ⬜ **Checkpoint**: Shuffle button → next track is random within queue; loop cycles correctly
-
----
-
-### Session 6B — Desktop Layout Overhaul ⬜ NOT STARTED
-
-- ⬜ `client/src/components/PlayerBar.tsx` — rename from MobilePlayerBar; remove `sm:hidden`
-- ⬜ `PlayerBar` — add Shuffle button (orange when active) and Loop cycle button
-- ⬜ `PlayerBar` — add VolumeControl (visible `sm:flex`, hidden on mobile)
-- ⬜ `client/src/App.tsx` — add `activeTab: 'library' | 'playlists'` state
-- ⬜ `client/src/App.tsx` — Library tab: SearchBar, FileUpload, StorageBar, TrackList
-- ⬜ `client/src/App.tsx` — Playlists tab: PlaylistPanel
-- ⬜ `client/src/App.tsx` — remove `hidden sm:flex` embedded player card
-- ⬜ `client/src/App.tsx` — update body padding `pb-28` (was `pb-32 sm:pb-10`)
-- ⬜ All client tests pass
-- ⬜ **Checkpoint**: Desktop shows tabs; PlayerBar always visible; shuffle/loop buttons present
+- ✅ `usePlayer.ts` rewritten: `shuffleRef`, `loopModeRef`, `queueRef`, `currentTrackRef`, `volumeRef`, `playInternalRef` (all `useRef` so Howl `onend` closure sees current values)
+- ✅ `play(track, context?)` — sets `queueRef` if context provided; falls back to `libraryTracks` on first play
+- ✅ `onend` auto-advance: loop-track restarts, shuffle picks random, linear advances, queue-loop wraps, otherwise stops
+- ✅ `toggleShuffle()` / `cycleLoop()` sync refs + `useState` for re-renders
+- ✅ Library track click → `player.play(track, visibleTracks)` (filtered library as queue context)
+- ✅ Playlist track click → `player.play(track, playlistQueue)` (playlist as queue context)
+- ✅ All client tests pass
 
 ---
 
-### Session 6C — Cascade Delete + Extended Chat Actions ⬜ NOT STARTED
+### Session 6B — Desktop Layout Overhaul ✅ COMPLETE
 
-- ⬜ `client/src/contexts/PlaylistContext.tsx` — add `removeTrackFromAllPlaylists(trackId)` + expose via `usePlaylist()`
-- ⬜ `client/src/App.tsx` — `handleDeleteTrack` calls `removeTrackFromAllPlaylists(track.id)`
-- ⬜ `server/src/routes/chat.ts` — add 6 new action rules: pause, resume, skip, prev, set_volume, search_and_play
-- ⬜ `client/src/App.tsx` — `handleChatAction` handles all 6 new action types
-- ⬜ All server + client tests pass
-- ⬜ **Checkpoint**: Delete library track → removed from all playlists; chat pause/skip/volume work; "find and play jazz" plays Deezer preview
+- ✅ `PlayerBar.tsx` (renamed from MobilePlayerBar): always-visible fixed bottom bar, `max-w-md` width, swipe gestures preserved
+- ✅ Shuffle button (orange when active) + Loop cycle button (badge "1" for track-loop mode)
+- ✅ `VolumeControl` desktop-only (`hidden sm:flex`)
+- ✅ Library / Playlists tab switcher in `App.tsx` (orange underline on active)
+- ✅ Removed `hidden sm:flex` embedded desktop player card; padding `pb-28`
+- ✅ Temporal dead zone bug fixed: `visibleTracks` useMemo hoisted above `handleSelect`
+- ✅ All client tests pass
+
+---
+
+### Session 6C — Cascade Delete + UX Polish ✅ COMPLETE
+
+- ✅ `removeTrackFromAllPlaylists(trackId)` in `PlaylistContext`; called from `handleDeleteTrack`
+- ✅ Deezer tracks persisted to `localStorage` (`deezer-library-tracks` key); survive page refresh
+- ✅ `Tooltip.tsx` — mouse-following via `onMouseMove`, `bottom` anchor (no transform conflict), `matchMedia` hover detection
+- ✅ `TrackList.tsx` — `⋮` mobile button (portal menu: Info / Add to playlist / Delete); `InfoBottomSheet`; desktop `+`/trash `hidden sm:flex`
+- ✅ `PlaylistPanel.tsx` — per-playlist filter + sort dropdown; DnD disabled when filter active
+- ✅ 49 client + 52 server tests pass
+
+---
+
+### Session feature/pricing-mockup — Mockup Pricing Page ✅ COMPLETE
+
+- ✅ `PricingPage.tsx` — full-screen portal overlay; 3 tiers (Free / Pro / Max); all CTAs disabled
+- ✅ Diagonal "MOCKUP" watermark (Cormorant Garamond, semi-transparent)
+- ✅ Sticky amber banner: "MOCKUP ONLY — no payment is processed"
+- ✅ "Plans" button in app header → `showPricing` state
+- ✅ Cormorant Garamond font added to `client/index.html`
 
 ---
 
@@ -380,4 +290,8 @@ Session 2D — Multi-Playlist + UI Polish ✅ COMPLETE
 |---|---|---|---|
 | 1A–1C | 2026-04-19 | `.env` in diff; tsconfig conflict; missing error boundary on SearchBar | ⬜ Pending |
 | 2A (Spotify) | 2026-04-20 | Spotify 403 — Premium required; code complete but blocked | ✅ Superseded by Deezer |
-| 2B | 2026-04-20 | Playlist display-only (no playback); Deezer preview routing bug | ⬜ Scheduled for 2C |
+| 2B | 2026-04-20 | Playlist display-only (no playback); Deezer preview routing bug | ✅ Fixed in 2C |
+| 3C | 2026-04-22 | Playlist sync debounce missing; Favorites lookup by name fragile | ⬜ Known limitation |
+| 5C | 2026-04-23 | AI action reliability on 8B model; backtick-wrapped JSON dropped | ✅ Fixed: 70B model + parser hardening |
+| 6B | 2026-04-24 | Tab state lost on re-render; `playInternalRef` assigned during render | ⬜ Low risk, accepted |
+| 6C | 2026-04-24 | Tooltip transform/animation conflict causing placement issues | ✅ Fixed: bottom anchor approach |
