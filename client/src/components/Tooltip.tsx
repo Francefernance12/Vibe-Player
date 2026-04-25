@@ -12,7 +12,8 @@ const SUPPORTS_HOVER = (() => {
 })()
 
 const CARD_WIDTH = 256
-const GAP_ABOVE = 12
+const GAP = 16
+const CARD_HEIGHT_EST = 164
 
 // ---------- card content ----------
 
@@ -99,14 +100,13 @@ export function Tooltip({ content, children, className }: TooltipProps) {
     return <div className={className}>{children}</div>
   }
 
-  const style: React.CSSProperties = pos ? {
-    position: 'fixed',
-    left: Math.max(8, Math.min(pos.x - CARD_WIDTH / 2, window.innerWidth - CARD_WIDTH - 8)),
-    top: pos.y - GAP_ABOVE,
-    transform: 'translateY(-100%)',
-    zIndex: 9999,
-    pointerEvents: 'none',
-  } : {}
+  const style: React.CSSProperties = pos ? (() => {
+    const left = Math.max(8, Math.min(pos.x - CARD_WIDTH / 2, window.innerWidth - CARD_WIDTH - 8))
+    const fitsAbove = pos.y - CARD_HEIGHT_EST - GAP > 0
+    return fitsAbove
+      ? { position: 'fixed', left, bottom: window.innerHeight - pos.y + GAP, zIndex: 9999, pointerEvents: 'none' }
+      : { position: 'fixed', left, top: pos.y + GAP + 20, zIndex: 9999, pointerEvents: 'none' }
+  })() : {}
 
   return (
     <>

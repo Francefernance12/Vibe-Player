@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(calc(var(--tw-translate-y, -100%) - 4px)); }
-  to   { opacity: 1; transform: translateY(var(--tw-translate-y, -100%)); }
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in {
-  animation: fade-in 0.1s ease-out forwards;
+  animation: fade-in 0.12s ease-out forwards;
 }
 
 @keyframes slide-up {
