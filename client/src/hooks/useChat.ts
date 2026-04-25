@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -42,14 +42,18 @@ function extractAction(text: string): { clean: string; action: ChatAction | null
 
 export function useChat({ trackName, library, playlists, onAction }: UseChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const messagesRef = useRef<ChatMessage[]>([])
+  const isLoadingRef = useRef(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return
+    if (!text.trim() || isLoadingRef.current) return
 
     const userMsg: ChatMessage = { role: 'user', content: text.trim() }
-    const nextMessages = [...messages, userMsg].slice(-20)
+    const nextMessages = [...messagesRef.current, userMsg].slice(-20)
+    messagesRef.current = nextMessages
     setMessages(nextMessages)
+    isLoadingRef.current = true
     setIsLoading(true)
 
     // Strip UI-only fields before sending — Groq rejects unknown properties
@@ -70,7 +74,9 @@ export function useChat({ trackName, library, playlists, onAction }: UseChatOpti
       })
 
       if (res.status === 429) {
-        setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Rate limit reached — try again in a minute.' }].slice(-20))
+        const updated = [...messagesRef.current, { role: 'assistant' as const, content: 'Rate limit reached — try again in a minute.' }].slice(-20)
+        messagesRef.current = updated
+        setMessages(updated)
         return
       }
       if (!res.ok) throw new Error('Request failed')
@@ -78,22 +84,29 @@ export function useChat({ trackName, library, playlists, onAction }: UseChatOpti
       const { reply } = await res.json()
       const { clean, action } = extractAction(reply as string)
 
-      setMessages(prev => [...prev, { role: 'assistant' as const, content: clean }].slice(-20))
+      const withReply = [...messagesRef.current, { role: 'assistant' as const, content: clean }].slice(-20)
+      messagesRef.current = withReply
+      setMessages(withReply)
 
       if (action && onAction) {
         const feedback = onAction(action)
         if (feedback) {
-          setMessages(prev => [...prev, { role: 'assistant' as const, content: feedback, kind: 'action' as const }].slice(-20))
+          const withFeedback = [...messagesRef.current, { role: 'assistant' as const, content: feedback, kind: 'action' as const }].slice(-20)
+          messagesRef.current = withFeedback
+          setMessages(withFeedback)
         }
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Something went wrong. Try again.' }].slice(-20))
+      const withError = [...messagesRef.current, { role: 'assistant' as const, content: 'Something went wrong. Try again.' }].slice(-20)
+      messagesRef.current = withError
+      setMessages(withError)
     } finally {
+      isLoadingRef.current = false
       setIsLoading(false)
     }
-  }, [messages, isLoading, trackName, library, playlists, onAction])
+  }, [trackName, library, playlists, onAction])
 
-  const clearMessages = useCallback(() => setMessages([]), [])
+  const clearMessages = useCallback(() => { messagesRef.current = []; setMessages([]) }, [])
 
   return { messages, isLoading, sendMessage, clearMessages }
 }

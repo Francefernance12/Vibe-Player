@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { memo, useRef, useEffect, useCallback } from 'react'
 
 interface Props {
   isPlaying: boolean
@@ -17,7 +17,7 @@ function fmt(s: number): string {
  * Updates the progress bar via direct DOM mutation on every Howler tick.
  * No setState on ticks — see vercel-react-best-practices: rerender-use-ref-transient-values.
  */
-export function ProgressBar({ isPlaying, getDuration, getSeek, onSeek }: Props) {
+export const ProgressBar = memo(function ProgressBar({ isPlaying, getDuration, getSeek, onSeek }: Props) {
   const barRef = useRef<HTMLDivElement>(null)
   const fillRef = useRef<HTMLDivElement>(null)
   const thumbRef = useRef<HTMLDivElement>(null)
@@ -85,4 +85,4 @@ export function ProgressBar({ isPlaying, getDuration, getSeek, onSeek }: Props) 
       <span ref={durationRef} className="font-mono text-[11px] text-zinc-500 w-8">0:00</span>
     </div>
   )
-}
+})

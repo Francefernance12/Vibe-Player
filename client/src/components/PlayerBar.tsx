@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useSwipeable } from 'react-swipeable'
 import { Track } from '../types'
 import { PlayerControls } from './PlayerControls'
@@ -49,7 +50,7 @@ export interface PlayerBarProps {
   onVolumeChange: (v: number) => void
 }
 
-export function PlayerBar({
+export const PlayerBar = memo(function PlayerBar({
   currentTrack, nowPlayingName, isPlaying, hasTrack,
   onPlay, onPause, onNext, onPrev,
   getDuration, getSeek, onSeek,
@@ -130,4 +131,4 @@ export function PlayerBar({
       </div>
     </div>
   )
-}
+})
