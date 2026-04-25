@@ -76,6 +76,10 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: Reques
   }
   try {
     const db = getDb();
+    // Quota is fetched fresh on every upload request to avoid stale reads.
+    // getUserUploadedBytes is called once per request here and once per
+    // GET /api/user/quota request — these are separate HTTP calls, so
+    // no cross-request caching is applied intentionally.
     const used = await getUserUploadedBytes(db, req.user!.userId);
     if (used + req.file.size > FREE_QUOTA_BYTES) {
       res.status(413).json({

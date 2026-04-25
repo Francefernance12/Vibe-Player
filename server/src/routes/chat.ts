@@ -5,6 +5,11 @@ import { authMiddleware } from '../middleware/auth'
 
 const router = Router()
 
+// Uses the default MemoryStore. On Vercel, each cold start creates a new process
+// with a fresh counter, so this limit is per-process-instance and is NOT globally
+// enforced across concurrent serverless invocations. Sufficient for abuse deterrence
+// but not a hard global cap. Replace with a Redis/Upstash store if a global limit
+// is required in the future.
 const chatRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 5,

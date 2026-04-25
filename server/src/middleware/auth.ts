@@ -22,10 +22,12 @@ export function getJwtSecret(): string {
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const token = req.cookies?.token
+  // Fast path: bail immediately if no cookie is present — no JWT work done.
   if (!token) {
     res.status(401).json({ error: 'Not authenticated' })
     return
   }
+  // getJwtSecret() throws (fail-fast) if JWT_SECRET is missing from the environment.
   try {
     req.user = jwt.verify(token, getJwtSecret()) as AuthPayload
     next()

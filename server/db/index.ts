@@ -124,6 +124,41 @@ export async function deletePlaylist(db: Client, id: string): Promise<void> {
   await db.execute({ sql: 'DELETE FROM playlists WHERE id = ?', args: [id] })
 }
 
+export interface PlaylistWithTracks {
+  id: string
+  name: string
+  items: unknown[]
+}
+
+/**
+ * Fetch all playlists with their tracks for a user in a single JOIN query,
+ * eliminating the N+1 pattern of fetching tracks per playlist separately.
+ */
+export async function getPlaylistsWithTracks(db: Client, userId: string): Promise<PlaylistWithTracks[]> {
+  const { rows } = await db.execute({
+    sql: `SELECT p.id AS playlist_id, p.name, p.created_at,
+                 pt.track_data, pt.position
+          FROM playlists p
+          LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+          WHERE p.user_id = ?
+          ORDER BY p.created_at ASC, pt.position ASC`,
+    args: [userId],
+  })
+
+  // Reconstruct grouped shape from flat JOIN rows
+  const map = new Map<string, PlaylistWithTracks>()
+  for (const r of rows) {
+    const pid = String(r.playlist_id)
+    if (!map.has(pid)) {
+      map.set(pid, { id: pid, name: String(r.name), items: [] })
+    }
+    if (r.track_data !== null) {
+      map.get(pid)!.items.push(JSON.parse(String(r.track_data)))
+    }
+  }
+  return Array.from(map.values())
+}
+
 // --- Uploaded tracks ---
 
 export interface DbUploadedTrack {
@@ -212,7 +247,14 @@ export async function removeTrackFromPlaylist(db: Client, trackId: string): Prom
   await db.execute({ sql: 'DELETE FROM playlist_tracks WHERE id = ?', args: [trackId] })
 }
 
-/** Replace all tracks for a playlist atomically. */
+/**
+ * Replace all tracks for a playlist atomically.
+ *
+ * db.batch() with mode 'write' is atomic on both the Turso remote client
+ * (executed as a server-side batch transaction) and the local sqlite3 client
+ * (wrapped automatically in a transaction by the driver). Do NOT add explicit
+ * BEGIN/COMMIT — the driver already wraps the batch, and a nested BEGIN throws.
+ */
 export async function replacePlaylistTracks(
   db: Client,
   playlistId: string,
