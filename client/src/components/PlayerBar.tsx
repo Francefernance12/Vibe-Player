@@ -1,7 +1,9 @@
 import { useSwipeable } from 'react-swipeable'
+import { Track } from '../types'
 import { PlayerControls } from './PlayerControls'
 import { ProgressBar } from './ProgressBar'
 import { VolumeControl } from './VolumeControl'
+import { Tooltip, TrackInfoCard } from './Tooltip'
 
 function ShuffleIcon() {
   return (
@@ -28,6 +30,7 @@ function RepeatIcon() {
 }
 
 export interface PlayerBarProps {
+  currentTrack: Track | null
   nowPlayingName: string | null
   isPlaying: boolean
   hasTrack: boolean
@@ -47,7 +50,7 @@ export interface PlayerBarProps {
 }
 
 export function PlayerBar({
-  nowPlayingName, isPlaying, hasTrack,
+  currentTrack, nowPlayingName, isPlaying, hasTrack,
   onPlay, onPause, onNext, onPrev,
   getDuration, getSeek, onSeek,
   shuffle, loopMode, onToggleShuffle, onCycleLoop,
@@ -65,9 +68,9 @@ export function PlayerBar({
   return (
     <div
       {...swipeHandlers}
-      className="fixed bottom-0 left-0 right-0 z-40 bg-[#111113] border-t border-[#1e1e21]"
+      className="fixed bottom-0 left-0 right-0 z-40 flex justify-center px-4"
     >
-      <div className="max-w-md mx-auto">
+      <div className="w-full max-w-md bg-[#111113] border-t border-x border-[#1e1e21] rounded-t-2xl">
       <div className="px-4 pt-2.5">
         <ProgressBar isPlaying={isPlaying} getDuration={getDuration} getSeek={getSeek} onSeek={onSeek} />
       </div>
@@ -100,10 +103,14 @@ export function PlayerBar({
           )}
         </button>
 
-        {/* Track name */}
-        <p className="flex-1 text-sm font-medium text-zinc-100 truncate mx-1 min-w-0">
-          {nowPlayingName ?? <span className="text-zinc-500 font-normal text-xs">Select a track</span>}
-        </p>
+        {/* Track name — tooltip shows full metadata on hover */}
+        {currentTrack ? (
+          <Tooltip content={<TrackInfoCard track={currentTrack} />} className="flex-1 min-w-0 mx-1">
+            <p className="text-sm font-medium text-zinc-100 truncate cursor-default">{nowPlayingName}</p>
+          </Tooltip>
+        ) : (
+          <p className="flex-1 text-zinc-500 font-normal text-xs truncate mx-1 min-w-0">Select a track</p>
+        )}
 
         {/* Playback controls */}
         <PlayerControls

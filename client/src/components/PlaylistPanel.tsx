@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -15,19 +15,32 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Track } from '../types'
 import { usePlaylist, PlaylistItem, Playlist } from '../contexts/PlaylistContext'
+import { Tooltip, TrackInfoCard, SearchTrackInfoCard } from './Tooltip'
+
+type SortOption = 'default' | 'az' | 'za'
 
 interface Props {
   onPlay: (item: PlaylistItem, playlistItems: PlaylistItem[]) => void
   currentTrack: Track | null
 }
 
-function itemId(item: PlaylistItem) {
-  return item.track.id
-}
+function itemId(item: PlaylistItem) { return item.track.id }
 
 function itemLabel(item: PlaylistItem) {
   if (item.kind === 'local') return item.track.originalName.replace(/\.[^.]+$/, '')
-  return `${item.track.title} — ${item.track.artist}`
+  return item.track.title
+}
+
+function itemSubLabel(item: PlaylistItem) {
+  if (item.kind === 'local') {
+    const size = item.track.size > 0
+      ? item.track.size >= 1_048_576
+        ? `${(item.track.size / 1_048_576).toFixed(1)} MB`
+        : `${Math.round(item.track.size / 1024)} KB`
+      : null
+    return size ? `${item.track.source} · ${size}` : item.track.source
+  }
+  return item.track.artist
 }
 
 function isActive(item: PlaylistItem, currentTrack: Track | null): boolean {
@@ -67,45 +80,56 @@ function ChevronIcon({ open }: { open: boolean }) {
 }
 
 function SortableRow({
-  item,
-  active,
-  onPlay,
-  onRemove,
+  item, active, onPlay, onRemove, draggable,
 }: {
   item: PlaylistItem
   active: boolean
   onPlay: () => void
   onRemove: () => void
+  draggable: boolean
 }) {
   const id = itemId(item)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
+  const tooltipContent = item.kind === 'local'
+    ? <TrackInfoCard track={item.track} />
+    : <SearchTrackInfoCard track={item.track} />
 
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2.5 px-4 py-2.5 select-none transition-colors ${
+      className={`flex items-center gap-2.5 px-4 py-2 select-none transition-colors ${
         isDragging ? 'bg-orange-500/5 opacity-70' : active ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'
       }`}
     >
-      <span
-        {...attributes}
-        {...listeners}
-        className="text-zinc-700 hover:text-zinc-400 cursor-grab active:cursor-grabbing transition-colors flex-shrink-0"
-        aria-label="Drag to reorder"
-      >
-        <DragHandle />
-      </span>
-      <button
-        onClick={onPlay}
-        className="flex-1 text-left min-w-0"
-        aria-label={`Play ${itemLabel(item)}`}
-      >
-        <p className={`text-sm truncate transition-colors ${active ? 'text-orange-300' : 'text-zinc-300 hover:text-zinc-100'}`}>
-          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 mr-1.5 mb-0.5 animate-pulse" />}
-          {itemLabel(item)}
-        </p>
-      </button>
+      {draggable ? (
+        <span
+          {...attributes}
+          {...listeners}
+          className="text-zinc-700 hover:text-zinc-400 cursor-grab active:cursor-grabbing transition-colors flex-shrink-0"
+          aria-label="Drag to reorder"
+        >
+          <DragHandle />
+        </span>
+      ) : (
+        <span className="w-3.5 flex-shrink-0" />
+      )}
+
+      <Tooltip content={tooltipContent} className="flex-1 min-w-0">
+        <button
+          onClick={onPlay}
+          className="w-full text-left min-w-0"
+          aria-label={`Play ${itemLabel(item)}`}
+        >
+          <p className={`text-sm truncate transition-colors leading-tight ${active ? 'text-orange-300' : 'text-zinc-300 hover:text-zinc-100'}`}>
+            {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 mr-1.5 mb-0.5 animate-pulse" />}
+            {itemLabel(item)}
+          </p>
+          <p className="text-[10px] font-mono text-zinc-600 truncate mt-0.5">{itemSubLabel(item)}</p>
+        </button>
+      </Tooltip>
+
       <button
         onClick={onRemove}
         className="text-zinc-700 hover:text-red-400 transition-colors p-0.5 rounded flex-shrink-0"
@@ -117,12 +141,10 @@ function SortableRow({
   )
 }
 
+const SORT_LABELS: Record<SortOption, string> = { default: 'Default', az: 'A–Z', za: 'Z–A' }
+
 function PlaylistSection({
-  playlist,
-  expanded,
-  onToggle,
-  onPlay,
-  currentTrack,
+  playlist, expanded, onToggle, onPlay, currentTrack,
 }: {
   playlist: Playlist
   expanded: boolean
@@ -132,6 +154,34 @@ function PlaylistSection({
 }) {
   const { removeFromPlaylist, reorderPlaylist } = usePlaylist()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const [filterText, setFilterText] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>('default')
+  const [sortOpen, setSortOpen] = useState(false)
+  const sortRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!sortOpen) return
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [sortOpen])
+
+  const isFiltered = filterText !== '' || sortOption !== 'default'
+
+  const displayItems = useMemo(() => {
+    let items = playlist.items
+    if (filterText) {
+      const q = filterText.toLowerCase()
+      items = items.filter(i =>
+        itemLabel(i).toLowerCase().includes(q) || itemSubLabel(i).toLowerCase().includes(q)
+      )
+    }
+    if (sortOption === 'az') items = [...items].sort((a, b) => itemLabel(a).localeCompare(itemLabel(b)))
+    else if (sortOption === 'za') items = [...items].sort((a, b) => itemLabel(b).localeCompare(itemLabel(a)))
+    return items
+  }, [playlist.items, filterText, sortOption])
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
@@ -143,6 +193,7 @@ function PlaylistSection({
 
   return (
     <div className="border-b border-[#1e1e21] last:border-b-0">
+      {/* Accordion header */}
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/[0.02] transition-colors group"
@@ -158,11 +209,80 @@ function PlaylistSection({
         </span>
       </button>
 
+      {/* Filter + sort bar — only when expanded and has items */}
+      {expanded && playlist.items.length > 0 && (
+        <div className="flex items-center gap-2 px-4 pb-2 border-b border-[#1e1e21]/50">
+          <input
+            type="text"
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            placeholder="Filter…"
+            className="flex-1 bg-transparent text-xs font-mono text-zinc-300 placeholder-zinc-700 outline-none min-w-0"
+          />
+          {filterText && (
+            <button
+              onClick={() => setFilterText('')}
+              className="text-zinc-600 hover:text-zinc-300 text-sm font-mono leading-none transition-colors flex-shrink-0"
+            >
+              ×
+            </button>
+          )}
+          <div ref={sortRef} className="relative flex-shrink-0">
+            <button
+              onClick={() => setSortOpen(o => !o)}
+              className={`flex items-center gap-0.5 text-[10px] font-mono transition-colors ${
+                sortOption !== 'default' ? 'text-orange-400' : 'text-zinc-600 hover:text-zinc-400'
+              }`}
+            >
+              {SORT_LABELS[sortOption]}
+              <svg viewBox="0 0 16 16" fill="currentColor" className={`w-2.5 h-2.5 transition-transform ${sortOpen ? 'rotate-180' : ''}`}>
+                <path d="M4 6l4 4 4-4H4z" />
+              </svg>
+            </button>
+            {sortOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-[#111113] border border-[#1e1e21] rounded-xl overflow-hidden shadow-xl shadow-black/60 min-w-[5rem]">
+                {(Object.entries(SORT_LABELS) as [SortOption, string][]).map(([opt, label]) => (
+                  <button
+                    key={opt}
+                    onClick={() => { setSortOption(opt); setSortOpen(false) }}
+                    className={`w-full text-left px-3 py-1.5 text-[10px] font-mono transition-colors ${
+                      sortOption === opt
+                        ? 'text-orange-400 bg-orange-500/10'
+                        : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Items (animated) */}
       <div className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
-          {playlist.items.length === 0 ? (
-            <p className="text-xs text-zinc-600 px-4 py-3 font-mono italic">empty</p>
+          {displayItems.length === 0 ? (
+            <p className="text-xs text-zinc-700 px-4 py-3 font-mono italic">
+              {filterText ? 'no matches' : 'empty'}
+            </p>
+          ) : isFiltered ? (
+            /* Plain list when filtered/sorted — DnD disabled */
+            <ul className="divide-y divide-[#1e1e21]">
+              {displayItems.map(item => (
+                <SortableRow
+                  key={itemId(item)}
+                  item={item}
+                  active={isActive(item, currentTrack)}
+                  onPlay={() => onPlay(item, playlist.items)}
+                  onRemove={() => removeFromPlaylist(itemId(item), playlist.id)}
+                  draggable={false}
+                />
+              ))}
+            </ul>
           ) : (
+            /* DnD-enabled list when no filter/sort */
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={playlist.items.map(itemId)} strategy={verticalListSortingStrategy}>
                 <ul className="divide-y divide-[#1e1e21]">
@@ -173,6 +293,7 @@ function PlaylistSection({
                       active={isActive(item, currentTrack)}
                       onPlay={() => onPlay(item, playlist.items)}
                       onRemove={() => removeFromPlaylist(itemId(item), playlist.id)}
+                      draggable={true}
                     />
                   ))}
                 </ul>

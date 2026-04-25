@@ -844,3 +844,48 @@ None additional beyond those noted in the prior session-5c review.
 - Consider exposing `queueRef.current.length` so the UI can show "X tracks in queue".
 - The "1" badge on the loop button is 7px text in a 10px circle — may be too small on low-DPI screens. Consider an outlined "1" or a different visual cue.
 - Session 6C (cascade delete + extended chat actions) is the natural next step and closes the remaining player control gap in the chat assistant.
+
+---
+
+## Date: 2026-04-24
+
+## Branch Name: session-6c
+
+## What Changed
+
+4 commits, 7 files changed across three sub-tasks:
+
+**Cascade delete + Deezer persistence fix**
+- `client/src/contexts/PlaylistContext.tsx` — added `removeTrackFromAllPlaylists(trackId)`: filters every playlist's items and syncs changed playlists to the backend if logged in.
+- `client/src/App.tsx` — `handleDeleteTrack` calls `removeTrackFromAllPlaylists(track.id)` after removing from local state; `saveDeezerTracks()` also called to keep localStorage consistent. `loadDeezerTracks()` merged into the initial fetch so Deezer tracks survive refresh. `visibleTracks` `useMemo` hoisted above `handleSelect` to fix temporal dead zone crash on mount.
+
+**Tooltip overhaul (mouse-following + hover detection)**
+- `client/src/components/Tooltip.tsx` — new file: `SUPPORTS_HOVER` detected via `window.matchMedia('(hover: hover) and (pointer: fine)')` (try/catch for jsdom). Tooltip now uses `onMouseMove` to track `e.clientX`/`e.clientY` and positions above the cursor with `translateY(-100%)`, horizontally clamped to viewport edges (`max-w-64`, 8px margin). `TrackInfoCard` and `SearchTrackInfoCard` card components extracted here.
+- `client/src/index.css` — added `@keyframes slide-up` + `.animate-slide-up` for the mobile info bottom sheet.
+
+**Mobile 3-dots options menu for TrackList**
+- `client/src/components/TrackList.tsx` — existing `+` and trash buttons now `hidden sm:flex` (desktop only). New `⋮` button (`flex sm:hidden`) opens a portal-rendered `MobileMenu` with Info / Add to playlist / Delete actions. "Add" closes menu and triggers existing inline picker. "Info" opens `InfoBottomSheet` — a full-width bottom sheet rendered via `createPortal` showing `TrackInfoCard`.
+
+**Test updates**
+- `client/src/__tests__/PlayerBar.test.tsx` — added `mockTrack` constant and `currentTrack={mockTrack}` to the "shows track name" test (required because `TrackInfoCard` now renders inside a `Tooltip` guarded by `currentTrack` being non-null).
+
+All 49 client tests and 52 server tests pass.
+
+## Issues Spotted
+
+1. **`MobileMenu` closes on any outside tap, including tapping a different track's ⋮ button** — tapping from one track's menu directly to another's ⋮ button will close the first and open the second correctly, but a brief flash may occur. Low severity.
+
+2. **`InfoBottomSheet` has no close button** — users must tap the backdrop to close. On small screens, if the keyboard is open, the backdrop may be occluded. Consider adding an explicit close button or swipe-down gesture.
+
+3. **`SUPPORTS_HOVER` is computed once at module load time** — this is correct for a persistent browser session, but if a user plugs in a mouse after page load, the tooltip won't activate until refresh. Acceptable tradeoff for simplicity.
+
+4. **Tooltip card width is hardcoded as `CARD_WIDTH = 256`** — matches `w-64` Tailwind class. If the card width changes in `CardShell`, the clamping math will be off. Consider deriving from the rendered element width via a ref if this becomes a maintenance concern.
+
+5. **`removeTrackFromAllPlaylists` uses `itemId(i)` which reads `item.track.id`** — this matches how tracks are stored in playlists. However, `saveDeezerTracks` in `handleDeleteTrack` filters by `filename`, while `removeTrackFromAllPlaylists` filters by `id`. These are consistent for both upload and Deezer tracks (IDs are stable), but worth noting the dual filter logic.
+
+## Suggestions
+
+- Add a swipe-down gesture to `InfoBottomSheet` using `react-swipeable` (already a dependency) for a more native feel.
+- Consider showing the `⋮` menu inline below the track row (same pattern as the playlist picker) on very small screens rather than a floating portal, to avoid z-index layering issues with the fixed `PlayerBar`.
+- Add `aria-haspopup="menu"` and `aria-expanded` to the ⋮ button for accessibility.
+- Move `CARD_WIDTH` into a shared constant if `CardShell`'s width ever needs to change.

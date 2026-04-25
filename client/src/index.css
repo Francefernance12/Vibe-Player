@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(calc(var(--tw-translate-y, -100%) - 4px)); }
+  to   { opacity: 1; transform: translateY(var(--tw-translate-y, -100%)); }
+}
+.animate-fade-in {
+  animation: fade-in 0.1s ease-out forwards;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out forwards;
+}

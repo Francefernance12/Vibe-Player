@@ -19,6 +19,7 @@ interface PlaylistContextValue {
   addLocal: (track: Track, playlistId: string) => void
   addDeezer: (track: SearchTrack) => void
   removeFromPlaylist: (trackId: string, playlistId: string) => void
+  removeTrackFromAllPlaylists: (trackId: string) => void
   reorderPlaylist: (playlistId: string, fromIndex: number, toIndex: number) => void
   isInPlaylist: (trackId: string, playlistId: string) => boolean
 }
@@ -173,6 +174,20 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
     })
   }, [user])
 
+  const removeTrackFromAllPlaylists = useCallback((trackId: string) => {
+    setPlaylists(prev => {
+      const next = prev.map(p => ({ ...p, items: p.items.filter(i => itemId(i) !== trackId) }))
+      if (user) {
+        next.forEach((p, i) => {
+          if (p.items.length !== prev[i].items.length) {
+            syncPlaylistTracks(p.id, p.items).catch(console.error)
+          }
+        })
+      }
+      return next
+    })
+  }, [user])
+
   const isInPlaylist = useCallback((trackId: string, playlistId: string): boolean =>
     playlists.find(p => p.id === playlistId)?.items.some(i => itemId(i) === trackId) ?? false
   , [playlists])
@@ -185,6 +200,7 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
       addLocal,
       addDeezer,
       removeFromPlaylist,
+      removeTrackFromAllPlaylists,
       reorderPlaylist,
       isInPlaylist,
     }}>
