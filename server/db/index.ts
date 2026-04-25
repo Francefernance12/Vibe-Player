@@ -229,11 +229,6 @@ export async function getTracksByPlaylist(db: Client, playlistId: string): Promi
   return rows.map(toDbPlaylistTrack)
 }
 
-export async function getPlaylistTrackById(db: Client, id: string): Promise<DbPlaylistTrack | null> {
-  const { rows } = await db.execute({ sql: 'SELECT * FROM playlist_tracks WHERE id = ?', args: [id] })
-  return rows.length ? toDbPlaylistTrack(rows[0]) : null
-}
-
 export async function addTrackToPlaylist(db: Client, track: Omit<DbPlaylistTrack, 'added_at'>): Promise<DbPlaylistTrack> {
   const added_at = new Date().toISOString()
   await db.execute({

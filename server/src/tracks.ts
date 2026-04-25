@@ -11,10 +11,6 @@ const SAMPLES_DIR = IS_VERCEL
   ? path.join(process.cwd(), 'server', 'samples')
   : path.join(__dirname, '..', 'samples');
 
-const UPLOADS_DIR = IS_VERCEL
-  ? '/tmp'
-  : path.join(__dirname, '..', 'uploads');
-
 const AUDIO_MIME: Record<string, string> = {
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',

@@ -276,3 +276,10 @@ Generates high-quality, production-grade UI code with a distinct visual style. A
 
 **vercel-react-best-practices skill**
 A curated set of Vercel engineering rules (re-render avoidance, ref-based transient values, memoization, bundle hygiene). Consulted before writing any React component. The ProgressBar's ref-based tick update is a direct result of this skill's `rerender-use-ref-transient-values` rule.
+
+---
+
+## Session 7C — Code Quality Pass
+
+**`client/src/types.ts` kept as a re-export barrel over `shared/types.ts`**
+`Track` was duplicated verbatim between `client/src/types.ts` and `shared/types.ts`. `SearchTrack` existed only on the client and as a local (unexported) type in `server/src/routes/search.ts`. Full consolidation was safe: `SearchTrack` was moved into `shared/types.ts` and the server's local definition was replaced with an import. `client/src/types.ts` was converted to a thin re-export barrel (`export type { Track, SearchTrack, TrackSource } from '../../shared/types'`) so the 14 existing client import sites required no changes. Deleting `client/src/types.ts` entirely was considered but rejected — the deep relative path (`../../shared/types`) through `client/src/` would have required updating every import site with no path alias available in `tsconfig.app.json`.
