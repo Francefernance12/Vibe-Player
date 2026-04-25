@@ -60,7 +60,6 @@ function DotsIcon() {
 interface MobileMenuPos { x: number; y: number }
 
 function MobileMenu({
-  track,
   pos,
   inAny,
   onInfo,
@@ -68,7 +67,6 @@ function MobileMenu({
   onDelete,
   onClose,
 }: {
-  track: Track
   pos: MobileMenuPos
   inAny: boolean
   onInfo: () => void
@@ -288,7 +286,6 @@ export const TrackList = memo(function TrackList({ tracks, currentTrack, onSelec
         if (!track) return null
         return (
           <MobileMenu
-            track={track}
             pos={mobileMenuState.pos}
             inAny={inAnyPlaylist(track.id)}
             onInfo={() => setInfoTrack(track)}
