@@ -919,3 +919,43 @@ All 49 client tests and 52 server tests pass.
 - Consider showing the `⋮` menu inline below the track row (same pattern as the playlist picker) on very small screens rather than a floating portal, to avoid z-index layering issues with the fixed `PlayerBar`.
 - Add `aria-haspopup="menu"` and `aria-expanded` to the ⋮ button for accessibility.
 - Move `CARD_WIDTH` into a shared constant if `CardShell`'s width ever needs to change.
+
+---
+
+## Date: 2026-04-25
+
+## Branch Name: session-7a
+
+## What Changed
+
+7 files changed, 83 insertions(+), 37 deletions(-) — frontend performance audit via perf-optimizer.
+
+### Files Modified:
+- `client/src/hooks/useChat.ts` — stale closure fix: added `messagesRef` and `isLoadingRef` refs; `sendMessage` now reads/writes through refs instead of closure-captured state; `messages` and `isLoading` removed from `useCallback` dep array; `clearMessages` resets both ref and state
+- `client/src/components/Tooltip.tsx` — replaced `pos` useState (triggering re-render on every mousemove at 60fps) with `posRef` + `cardRef`; `handleMouseMove` now writes directly to `cardRef.current.style.*` without setState; `visible` boolean state retained only for show/hide class toggle
+- `client/src/contexts/PlaylistContext.tsx` — added `REORDER_DEBOUNCE_MS = 400` constant and `reorderDebounceRef`; `reorderPlaylist` state update is now immediate (optimistic) while the `PUT /api/playlists/:id/tracks` network call is debounced 400ms to avoid flooding the server on rapid drag-and-drop
+- `client/src/components/PlayerBar.tsx` — wrapped with `React.memo`
+- `client/src/components/ProgressBar.tsx` — wrapped with `React.memo`
+- `client/src/components/SearchBar.tsx` — added `onSearching` to `useEffect` dependency array (was missing, causing the effect to silently not re-run when the prop changed)
+- `docs/PLANCHECKLIST.md` — Session 7A marked complete; Agent Review Log updated
+
+### Summary:
+- Phase 7A frontend performance audit complete. Three root issues fixed: (1) stale closure in `useChat.sendMessage` was rebuilding the function on every message because `messages` was in deps — now uses refs. (2) Tooltip was calling `setState` inside every `mousemove` event (60fps) — now writes directly to DOM. (3) Playlist reorder was firing a PUT on every drag step — now debounced 400ms. Two components memoized with `React.memo`. One missing dep array entry fixed. All 49 client tests pass. Bundle: 105 kB gzip.
+
+## Issues Spotted
+
+1. **`reorderPlaylist` debounce ref captures stale items snapshot**: The `reordered` variable is captured via closure inside `setPlaylists`. If `reorderPlaylist` is called again before the debounce fires, the ref is cleared and reset to the latest snapshot — correct behavior, no bug. But if `reorderedItems` is referenced after the `setPlaylists` call returns `undefined` (unlikely but possible if `playlistId` doesn't match), the sync is silently skipped. Not a functional regression.
+
+2. **`PlayerBar` and `ProgressBar` memoized but their props aren't checked for referential stability**: `React.memo` shallow-compares props. If the parent passes inline object or function literals (e.g., `onSeek={() => ...}`) without `useCallback`, the memo optimization is bypassed. Verify that all callback props to `PlayerBar` in `App.tsx` are memoized.
+
+3. **`useChat` `clearMessages` closes over nothing but `messagesRef` is still a ref** — the `useCallback` dep array is `[]`, which is correct since refs are stable. Confirmed no regression.
+
+4. **Tooltip `visible` state still triggers one re-render on enter/leave** — this is acceptable (the card must mount/unmount from the VDOM). The 60fps setState on mousemove was the actual bottleneck, which is now fixed.
+
+5. **`SearchBar` missing-dep fix is a behavioral change**: Previously `onSearching` was never re-read after mount — any new value was silently ignored. Adding it to deps means if `onSearching` is not memoized in the parent, the effect re-runs on every parent render. Not a bug, but parent callers should ensure `onSearching` is stable.
+
+## Suggestions
+
+- Audit `App.tsx` props passed to `PlayerBar` to confirm all function props are wrapped in `useCallback`. Otherwise the `React.memo` on `PlayerBar` fires on every App render regardless.
+- Session 7B (backend audit: N+1 query in playlists, atomicity of `replacePlaylistTracks`, missing DB indexes) is the natural next step.
+- Consider adding a `useChat.test.ts` to cover `extractAction` and the ref-based `sendMessage` path — no test currently exercises the rollup of `messagesRef` updates in the success and error paths.

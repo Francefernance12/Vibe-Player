@@ -1,4 +1,4 @@
-import { useState, useCallback, ReactNode } from 'react'
+import { useState, useCallback, useRef, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Track, SearchTrack } from '../types'
 
@@ -86,35 +86,45 @@ interface TooltipProps {
 }
 
 export function Tooltip({ content, children, className }: TooltipProps) {
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const [visible, setVisible] = useState(false)
+  const posRef = useRef<{ x: number; y: number } | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    setPos({ x: e.clientX, y: e.clientY })
+    posRef.current = { x: e.clientX, y: e.clientY }
+    const card = cardRef.current
+    if (!card) return
+    const pos = posRef.current
+    const left = Math.max(8, Math.min(pos.x - CARD_WIDTH / 2, window.innerWidth - CARD_WIDTH - 8))
+    const fitsAbove = pos.y - CARD_HEIGHT_EST - GAP > 0
+    card.style.left = `${left}px`
+    if (fitsAbove) {
+      card.style.bottom = `${window.innerHeight - pos.y + GAP}px`
+      card.style.top = 'auto'
+    } else {
+      card.style.top = `${pos.y + GAP + 20}px`
+      card.style.bottom = 'auto'
+    }
   }, [])
 
-  const handleMouseLeave = useCallback(() => {
-    setPos(null)
-  }, [])
+  const handleMouseEnter = useCallback(() => setVisible(true), [])
+  const handleMouseLeave = useCallback(() => setVisible(false), [])
 
   if (!SUPPORTS_HOVER) {
     return <div className={className}>{children}</div>
   }
 
-  const style: React.CSSProperties = pos ? (() => {
-    const left = Math.max(8, Math.min(pos.x - CARD_WIDTH / 2, window.innerWidth - CARD_WIDTH - 8))
-    const fitsAbove = pos.y - CARD_HEIGHT_EST - GAP > 0
-    return fitsAbove
-      ? { position: 'fixed', left, bottom: window.innerHeight - pos.y + GAP, zIndex: 9999, pointerEvents: 'none' }
-      : { position: 'fixed', left, top: pos.y + GAP + 20, zIndex: 9999, pointerEvents: 'none' }
-  })() : {}
-
   return (
     <>
-      <div onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} className={className}>
+      <div onMouseMove={handleMouseMove} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className={className}>
         {children}
       </div>
-      {pos && createPortal(
-        <div style={style} className="animate-fade-in">
+      {createPortal(
+        <div
+          ref={cardRef}
+          style={{ position: 'fixed', zIndex: 9999, pointerEvents: 'none' }}
+          className={visible ? 'animate-fade-in' : 'opacity-0 pointer-events-none'}
+        >
           {content}
         </div>,
         document.body

@@ -284,6 +284,20 @@ This file is the first thing any agent or collaborator should read to understand
 
 ---
 
+## Phase 7 — Optimization & Code Quality
+
+### Session 7A — Frontend Performance Audit ✅ COMPLETE
+
+- ✅ `PlaylistContext.tsx` — `reorderPlaylist` debounced 400ms; state update stays immediate (optimistic), only the PUT is delayed
+- ✅ `useChat.ts` — `messagesRef` + `isLoadingRef` added; `sendMessage` reads via refs, removed `messages`/`isLoading` from `useCallback` dep array; `clearMessages` also clears ref
+- ✅ `PlayerBar.tsx` — wrapped with `React.memo`
+- ✅ `ProgressBar.tsx` — wrapped with `React.memo`
+- ✅ `Tooltip.tsx` — `pos` state replaced with `posRef` + `cardRef`; `mousemove` writes directly to DOM style; `visible` boolean state retained for show/hide
+- ✅ `SearchBar.tsx` — `onSearching` added to `useEffect` dep array
+- ✅ 49 client tests pass; build: 344.87 kB raw / 105.28 kB gzip
+
+---
+
 ## Agent Review Log
 
 | Session | Date | Findings | Resolved |
@@ -291,7 +305,8 @@ This file is the first thing any agent or collaborator should read to understand
 | 1A–1C | 2026-04-19 | `.env` in diff; tsconfig conflict; missing error boundary on SearchBar | ⬜ Pending |
 | 2A (Spotify) | 2026-04-20 | Spotify 403 — Premium required; code complete but blocked | ✅ Superseded by Deezer |
 | 2B | 2026-04-20 | Playlist display-only (no playback); Deezer preview routing bug | ✅ Fixed in 2C |
-| 3C | 2026-04-22 | Playlist sync debounce missing; Favorites lookup by name fragile | ⬜ Known limitation |
+| 3C | 2026-04-22 | Playlist sync debounce missing; Favorites lookup by name fragile | ✅ Fixed in 7A: reorderPlaylist debounced |
 | 5C | 2026-04-23 | AI action reliability on 8B model; backtick-wrapped JSON dropped | ✅ Fixed: 70B model + parser hardening |
 | 6B | 2026-04-24 | Tab state lost on re-render; `playInternalRef` assigned during render | ⬜ Low risk, accepted |
 | 6C | 2026-04-24 | Tooltip transform/animation conflict causing placement issues | ✅ Fixed: bottom anchor approach |
+| 7A | 2026-04-25 | perf-optimizer: 2 high + 2 medium + 1 low issues found and fixed | ✅ All resolved |

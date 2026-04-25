@@ -37,7 +37,7 @@ export function SearchBar({ onResults, onSearching }: Props) {
     }, 400)
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [query, onResults])
+  }, [query, onResults, onSearching])
 
   return (
     <div>

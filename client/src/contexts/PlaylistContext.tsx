@@ -26,6 +26,7 @@ interface PlaylistContextValue {
 
 export const LOCAL_FAVORITES_ID = 'favorites'
 const STORAGE_KEY = 'playlists:v2'
+const REORDER_DEBOUNCE_MS = 400
 
 function itemId(item: PlaylistItem): string {
   return item.track.id
@@ -81,6 +82,7 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [playlists, setPlaylists] = useState<Playlist[]>(loadFromStorage)
   const prevUserIdRef = useRef<string | null>(null)
+  const reorderDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Load from API when user logs in; fall back to localStorage when logged out
   useEffect(() => {
@@ -158,20 +160,25 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   const reorderPlaylist = useCallback((playlistId: string, fromIndex: number, toIndex: number) => {
+    let reordered: PlaylistItem[] | null = null
     setPlaylists(prev => {
       const next = prev.map(p => {
         if (p.id !== playlistId) return p
         const items = [...p.items]
         const [moved] = items.splice(fromIndex, 1)
         items.splice(toIndex, 0, moved)
+        reordered = items
         return { ...p, items }
       })
-      if (user) {
-        const updated = next.find(p => p.id === playlistId)
-        if (updated) syncPlaylistTracks(playlistId, updated.items).catch(console.error)
-      }
       return next
     })
+    if (user && reordered) {
+      if (reorderDebounceRef.current) clearTimeout(reorderDebounceRef.current)
+      const snapshot = reordered
+      reorderDebounceRef.current = setTimeout(() => {
+        syncPlaylistTracks(playlistId, snapshot).catch(console.error)
+      }, REORDER_DEBOUNCE_MS)
+    }
   }, [user])
 
   const removeTrackFromAllPlaylists = useCallback((trackId: string) => {
