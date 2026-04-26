@@ -101,7 +101,7 @@ Create a `.env` file in the project root:
 
 ```
 PORT=3001
-TURSO_DATABASE_URL=libsql://<your-db>.turso.io
+TURSO_URL=libsql://<your-db>.turso.io
 TURSO_AUTH_TOKEN=<your-turso-token>
 JWT_SECRET=<any-long-random-string>
 GROQ_API_KEY=<your-groq-key>

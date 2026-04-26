@@ -60,7 +60,7 @@ Note: there is no `/server/uploads` — user uploads go to Vercel Blob, not the 
 
 | Variable | Purpose |
 |---|---|
-| `TURSO_DATABASE_URL` | Turso libSQL database URL |
+| `TURSO_URL` | Turso libSQL database URL |
 | `TURSO_AUTH_TOKEN` | Turso auth token |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob storage token |
 | `GROQ_API_KEY` | Groq LLM inference |

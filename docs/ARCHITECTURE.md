@@ -329,7 +329,7 @@ Browser
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `TURSO_DATABASE_URL` | server | libSQL database URL |
+| `TURSO_URL` | server | libSQL database URL |
 | `TURSO_AUTH_TOKEN` | server | libSQL auth token |
 | `BLOB_READ_WRITE_TOKEN` | server | Vercel Blob storage |
 | `GROQ_API_KEY` | server | Groq LLM inference |

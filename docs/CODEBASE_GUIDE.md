@@ -65,7 +65,7 @@ npm install --prefix server
 
 ```
 PORT=3001
-TURSO_DATABASE_URL=libsql://<your-db>.turso.io
+TURSO_URL=libsql://<your-db>.turso.io
 TURSO_AUTH_TOKEN=<your-token>
 JWT_SECRET=any-long-random-string
 GROQ_API_KEY=<your-groq-key>
@@ -158,7 +158,7 @@ Always use parameterized queries (`?` placeholders with `args`). Never interpola
 
 ### Migrations
 
-SQL files in `server/db/migrations/` are numbered. The runner (`server/db/migrate.ts`) reads them in order and runs any that haven't been recorded in the `_migrations` table. To add a table: create `005_create_whatever.sql`, write the `CREATE TABLE IF NOT EXISTS` statement, and restart the server. The migration runs automatically.
+SQL files in `server/db/migrations/` are numbered. The runner (`server/db/migrate.ts`) reads them in order and runs any that haven't been recorded in the `_migrations` table. To add a table: create the next numbered migration file (e.g. `006_create_whatever.sql`), write the `CREATE TABLE IF NOT EXISTS` statement, and restart the server. The migration runs automatically.
 
 ### Tables summary
 
@@ -228,9 +228,10 @@ Both contexts throw an error if used outside their provider, so the hook usage i
 
 ### The `Track` type
 
-Most of the app passes `Track` objects around. The shape is defined in `client/src/types.ts`:
+Most of the app passes `Track` objects around. The canonical definition lives in `shared/types.ts` (the single source of truth for all shared types). `client/src/types.ts` is a thin re-export barrel — do not add type definitions there.
 
 ```typescript
+// shared/types.ts
 interface Track {
   id: string
   filename: string         // used as the key for stream URL + deduplication
@@ -441,4 +442,4 @@ Vercel Hobby caps request bodies at 4.5 MB at the edge, regardless of multer con
 Vercel env vars must be added in the Vercel dashboard under Project → Settings → Environment Variables. They do not get picked up from `.env` in production.
 
 **"Tests are passing but the app crashes on Vercel"**
-Check that `client/src/types.ts` is in sync with `shared/types.ts`. These are two separate `Track` definitions (a known divergence). Any new field added to the shared type must also be added to the client copy, or the TypeScript build will fail.
+Check the Vercel build logs for TypeScript errors. The most common cause is a type mismatch between `shared/types.ts` and the server or client code. `client/src/types.ts` is a re-export barrel — all type definitions belong in `shared/types.ts`.

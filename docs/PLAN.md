@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A lightweight, Vercel-optimized music player web app built with React/TypeScript, Tailwind CSS, Node.js/Express, and SQLite. Built incrementally across ~5-hour sessions.
+A lightweight, Vercel-optimized music player web app built with React/TypeScript, Tailwind CSS, Node.js/Express, and Turso (libSQL). Built incrementally across ~5-hour sessions.
 
 **Deployment**: Vercel (serverless-compatible) **Live URL**: [https://vibe-player.vercel.app](https://vibe-player.vercel.app)
 
@@ -21,7 +21,7 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 | Playwright MCP      | (optional)                                           | Live browser testing of playback |
 
 
-> GitHub MCP is not used. Git and PR operations are handled by the opencode sub-agent via the `/commitReview` slash command. Run `/commitReview` manually at the end of each session — there is no auto-hook.
+> The GitHub MCP server is used for API operations (list PRs, create branches, read files). Git commit/push and PR creation are handled by the opencode sub-agent via the `/commitReview` slash command. Run `/commitReview` manually at the end of each session — there is no auto-hook.
 >
 > Spotify was attempted in Session 2A but requires Premium to use the Web API search endpoint. Replaced with Deezer public API — no API key, no OAuth, no account required. See docs/DECISIONS.md for full context.
 
@@ -51,7 +51,6 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 ├── server/                        ← Node/Express backend
 │   ├── routes/                    ← tracks, upload, stream, search
 │   ├── db/                        ← migrations + index.ts (Phase 3)
-│   ├── uploads/                   ← user-uploaded audio (gitignored)
 │   └── samples/                   ← bundled royalty-free tracks
 │
 ├── shared/                        ← shared TypeScript types
@@ -87,11 +86,14 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 | Styling            | Tailwind CSS                         |
 | Audio              | Howler.js                            |
 | Backend            | Node.js + Express                    |
-| Search             | Deezer public API (no key required)  |
 | Database           | Turso (libSQL) via @libsql/client    |
+| File storage       | Vercel Blob (`@vercel/blob`)         |
+| Search             | Deezer public API (no key required)  |
+| AI inference       | Groq (`llama-3.3-70b-versatile`)     |
+| Auth               | bcrypt + JWT in httpOnly cookies     |
 | Testing (backend)  | Jest + Supertest                     |
 | Testing (frontend) | Vitest + React Testing Library       |
-| Deployment         | Vercel                               |
+| Deployment         | Vercel (static + serverless)         |
 
 
 ---
@@ -112,7 +114,7 @@ A lightweight, Vercel-optimized music player web app built with React/TypeScript
 ## Testing Rules
 - Every new Express endpoint gets a Supertest test.
 - Every new React component gets at least one Vitest test.
-- DB tests always use :memory: SQLite, never the real file.
+- DB tests always use in-memory libSQL (`createClient({ url: ':memory:' })`), never the real Turso URL.
 - Run all tests before every commit.
 
 ## Code Style
@@ -231,7 +233,7 @@ Sessions 1A, 1B, and 1C are complete. The live URL serves the app with upload, p
 
 ### Session 5C — AI Music Assistant Chatbot ✅ COMPLETE
 
-- Orange bubble + slide-in chat panel. Groq `llama-3.1-8b-instant`, auth-protected, 5 req/min rate limit, 20-message rolling history.
+- Orange bubble + slide-in chat panel. Groq `llama-3.1-8b-instant` (later upgraded to `llama-3.3-70b-versatile` in Session 6C), auth-protected, 5 req/min rate limit, 20-message rolling history.
 
 ---
 
