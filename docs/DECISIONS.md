@@ -323,3 +323,13 @@ The original `handleDeleteTrack` in `App.tsx` called `DELETE /api/tracks/:id`, t
 
 **Japanese filename encoding fix (multer / busboy)**
 `multer`'s underlying `busboy` library decodes multipart form `filename` bytes as Latin-1 by default. UTF-8 filenames (e.g. Japanese, Chinese, accented characters) are garbled in `req.file.originalname`. Fix: `Buffer.from(req.file.originalname, 'latin1').toString('utf8')` re-encodes the bytes correctly. ASCII filenames are unaffected (ASCII is a subset of both Latin-1 and UTF-8). Covered by a unit-level test that round-trips a Japanese katakana filename through the Buffer conversion — an integration test was not feasible because `form-data` (used by supertest) strips control character bytes from filenames before sending.
+
+---
+
+## Post-Phase 7 — Viewport & Layout Fixes
+
+**`overflow-x: hidden` on `html` and `body` for universal horizontal scroll prevention**
+`ChatWindow` slides off-screen using `translate-x-full` combined with `w-full` (100vw on mobile). When closed, the element occupies the range `[100vw, 200vw]` horizontally — outside the visible viewport but still part of the document's scroll width. Most browsers on all platforms and devices will create a scrollable dead zone here, allowing the user to drag the page sideways to reveal blank space. The fix is `overflow-x: hidden` on both `html` and `body` in `index.css`. Both selectors are required: some browsers (notably iOS Safari, but also certain versions of Samsung Internet and older Android WebView) use `html` as the scroll container root and ignore `overflow-x` on `body` alone. Applying both is the cross-browser standard. This fix is not iOS-specific — it covers any browser on any device or screen size that would otherwise expose the off-screen translated content.
+
+**MobileMenu viewport clamping**
+The `⋮` context menu in `TrackList.tsx` was positioned with `right: window.innerWidth - pos.x`, anchoring its right edge to the tap position. On narrow viewports (any device under ~200px wider than the menu), tapping near the left edge of the screen caused the menu's left side to extend off-screen. Replaced with a `left`-based calculation clamped to `[8px, window.innerWidth - MENU_WIDTH - 8px]`. This keeps the menu fully on-screen on any viewport width down to 320px (the smallest common screen width across all device classes — not just phones, but also small-screen tablets and niche Android devices).
