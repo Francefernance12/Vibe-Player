@@ -97,7 +97,10 @@ function MobileMenu({
 
   const style: React.CSSProperties = {
     position: 'fixed',
-    right: window.innerWidth - pos.x,
+    left: Math.min(
+      Math.max(pos.x - MENU_WIDTH, 8),
+      window.innerWidth - MENU_WIDTH - 8,
+    ),
     top: showAbove ? pos.y - MENU_HEIGHT - 4 : pos.y + 4,
     width: MENU_WIDTH,
     zIndex: 9999,
