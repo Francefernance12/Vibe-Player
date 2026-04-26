@@ -23,20 +23,22 @@ A full-stack music player web app built incrementally across multiple sessions a
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| Frontend | React 18 + TypeScript, Vite 5 |
-| Styling | Tailwind CSS v3 |
-| Audio engine | Howler.js |
-| Backend | Node.js + Express 4 |
-| Database | Turso (libSQL / SQLite-compatible) via `@libsql/client` |
-| File storage | Vercel Blob |
-| External search | Deezer public API (no key required) |
-| AI inference | Groq API (`llama-3.3-70b-versatile`) |
-| Auth | bcrypt + JWT stored in httpOnly cookies |
-| Testing (backend) | Jest + Supertest |
-| Testing (frontend) | Vitest + React Testing Library |
-| Deployment | Vercel (static frontend + serverless API) |
+
+| Layer              | Choice                                                  |
+| ------------------ | ------------------------------------------------------- |
+| Frontend           | React 18 + TypeScript, Vite 5                           |
+| Styling            | Tailwind CSS v3                                         |
+| Audio engine       | Howler.js                                               |
+| Backend            | Node.js + Express 4                                     |
+| Database           | Turso (libSQL / SQLite-compatible) via `@libsql/client` |
+| File storage       | Vercel Blob                                             |
+| External search    | Deezer public API (no key required)                     |
+| AI inference       | Groq API (`llama-3.3-70b-versatile`)                    |
+| Auth               | bcrypt + JWT stored in httpOnly cookies                 |
+| Testing (backend)  | Jest + Supertest                                        |
+| Testing (frontend) | Vitest + React Testing Library                          |
+| Deployment         | Vercel (static frontend + serverless API)               |
+
 
 ---
 
@@ -48,7 +50,7 @@ A full-stack music player web app built incrementally across multiple sessions a
 
 **Vercel Blob for uploads** — Same problem as the database: files written to `/tmp` disappear between invocations. Vercel Blob stores files on a CDN and returns a permanent public URL that lives in Turso alongside the track metadata.
 
-**`useRef` for Howler closures** — Howl's `onend` callback is captured in a closure at construction time. Shuffle mode, loop mode, and the current queue are stored in `useRef` so the closure always reads current values without re-creating the Howl object on every state change.
+`**useRef` for Howler closures** — Howl's `onend` callback is captured in a closure at construction time. Shuffle mode, loop mode, and the current queue are stored in `useRef` so the closure always reads current values without re-creating the Howl object on every state change.
 
 **Portal rendering for overlays** — Track tooltips, mobile context menus, the info bottom sheet, and the pricing page all render via `createPortal` to `document.body`. This sidesteps z-index and `overflow: hidden` clipping from the track list container.
 
@@ -144,7 +146,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for a full annotated layout, component 
 
 ## About This Project
 
-Vibe Player was built as part of an AI agentic development course. The goal was to demonstrate how a complete, production-deployed web application can be built through structured human–AI collaboration — where the human sets direction, reviews decisions, and approves changes, while the AI agent handles implementation, testing, and documentation.
+Vibe Player project was built as a capstone project after completing an AI agentic development course by Ed Donner. The goal was to demonstrate how a complete, production-deployed web application can be built through structured human–AI collaboration — where the human sets direction, reviews decisions, and approves changes, while the AI agent handles implementation, testing, and documentation.
 
 Each session had a defined scope (e.g. "add auth endpoints", "build the chat assistant"), ended with a full test run and a commit, and was reviewed by a separate sub-agent (OpenCode) before merging. The `docs/` folder tracks every architectural decision, session checkpoint, and code review in a way that makes the development process itself auditable.
 
@@ -153,3 +155,7 @@ The session structure was also shaped by a practical constraint: Claude Code's P
 ### Development Workflow
 
 Each session followed the same pattern: create a `session-Xa` branch off `main`, implement the scoped feature, run the full test suite, then run `/commitReview` — which invokes the OpenCode sub-agent to write a code review to `docs/REVIEW.md` and open a GitHub PR. After the PR merges, `git pull` on `main` before starting the next session. Phase 7 sessions additionally used the `perf-optimizer` custom agent (`.claude/agents/perf-optimizer.md`) — a two-stage audit-then-implement workflow that produces a ranked findings list and waits for explicit approval before touching any code.
+
+### Course Link
+
+[Ed Donner Udemy Agentic AI course](www.udemy.com/course/ai-coder-from-vibe-coder-to-agentic-engineer)
