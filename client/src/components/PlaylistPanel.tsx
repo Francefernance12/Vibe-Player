@@ -217,11 +217,13 @@ function PlaylistSection({
             value={filterText}
             onChange={e => setFilterText(e.target.value)}
             placeholder="Filter…"
+            aria-label="Filter playlist tracks"
             className="flex-1 bg-transparent text-xs font-mono text-zinc-300 placeholder-zinc-700 outline-none min-w-0"
           />
           {filterText && (
             <button
               onClick={() => setFilterText('')}
+              aria-label="Clear filter"
               className="text-zinc-600 hover:text-zinc-300 text-sm font-mono leading-none transition-colors flex-shrink-0"
             >
               ×
@@ -367,6 +369,7 @@ export function PlaylistPanel({ onPlay, currentTrack }: Props) {
             onChange={e => setNewName(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Playlist name"
+            aria-label="New playlist name"
             className="flex-1 bg-[#1e1e21] border border-[#2a2a2f] rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-orange-500/50 font-mono"
           />
           <button

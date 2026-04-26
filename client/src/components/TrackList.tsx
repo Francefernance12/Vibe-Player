@@ -242,6 +242,8 @@ export const TrackList = memo(function TrackList({ tracks, currentTrack, onSelec
                   onClick={e => openMobileMenu(e, track.id)}
                   className="flex sm:hidden w-7 h-7 rounded-full items-center justify-center flex-shrink-0 text-zinc-600 hover:text-zinc-300 active:bg-white/[0.05] transition-colors"
                   aria-label="Track options"
+                  aria-haspopup="menu"
+                  aria-expanded={mobileMenuState?.trackId === track.id}
                 >
                   <DotsIcon />
                 </button>

@@ -305,6 +305,8 @@ Unified `PlayerBar` (renamed from `MobilePlayerBar`) always visible at bottom. L
 
 ## Phase 7 — Optimization & Code Quality ✅ COMPLETE
 
+**Goal**: Systematically audit and improve performance, reduce redundant work, and enforce code best practices across the entire codebase. Executed by the **`perf-optimizer`** custom agent.
+
 ---
 
 ### Session 7A — Frontend Performance Audit ✅ COMPLETE
@@ -321,7 +323,7 @@ Unified `PlayerBar` (renamed from `MobilePlayerBar`) always visible at bottom. L
 
 ### Session 7C — Code Quality Pass ✅ COMPLETE
 
-`client/src/types.ts` converted to re-export barrel from `shared/types.ts` (resolves known divergence). `SearchTrack` moved to `shared/types.ts`; local interface removed from `server/src/routes/search.ts`. Dead exports removed: `UPLOADS_DIR`, `PlayerState`, `PlayerControls`, `PlayerBarProps`. `handleDeleteTrack` data consistency fix — local state only mutated on confirmed 204. Accessibility: `aria-label` added to filter inputs, `aria-haspopup`/`aria-expanded` on `⋮` button. Japanese filename encoding fix: `Buffer.from(originalname, 'latin1').toString('utf8')` in upload handler. 54 server tests, 49 client tests.
+`client/src/types.ts` converted to re-export barrel from `shared/types.ts` (resolves known divergence). `SearchTrack` moved to `shared/types.ts`; local interface removed from `server/src/routes/search.ts`. Dead exports removed: `UPLOADS_DIR`, `getPlaylistTrackById`, `PlayerState`, `PlayerControls`, `PlayerBarProps`. `handleDeleteTrack` data consistency fix — local state only mutated on confirmed 204. Accessibility: `aria-label` added to filter inputs, `aria-haspopup`/`aria-expanded` on `⋮` button. Japanese filename encoding fix: `Buffer.from(originalname, 'latin1').toString('utf8')` in upload handler. 54 server tests, 49 client tests.
 
 ---
 

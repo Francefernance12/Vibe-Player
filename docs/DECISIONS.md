@@ -316,7 +316,7 @@ The original handler fetched playlists for the user, then `Promise.all`-ed a `ge
 ### Session 7C — Code Quality
 
 **Type consolidation: `shared/types.ts` as single source of truth**
-See Phase 2 Polish — "Dual Track type definition" entry above for the history. The resolution: `client/src/types.ts` is now a re-export barrel; `SearchTrack` moved to `shared/types.ts`; the local `SearchTrack` interface in `server/src/routes/search.ts` replaced with a shared import. No runtime behaviour changed — pure structural cleanup.
+See Phase 2 Polish — "Dual Track type definition" entry above for the history. `SearchTrack` was moved into `shared/types.ts` and the server's local definition replaced with an import. `client/src/types.ts` was converted to a thin re-export barrel (`export type { Track, SearchTrack, TrackSource } from '../../shared/types'`) so the 14 existing client import sites required no changes. Deleting `client/src/types.ts` entirely was considered but rejected — no path alias is available in `tsconfig.app.json`, so all import sites would have needed the deep relative path `../../shared/types`. Barrel approach keeps diffs minimal. No runtime behaviour changed — pure structural cleanup.
 
 **`handleDeleteTrack` data consistency fix**
 The original `handleDeleteTrack` in `App.tsx` called `DELETE /api/tracks/:id`, then unconditionally removed the track from local state — even if the network request failed. This caused the track to disappear from the UI on a failed delete and reappear on the next page load, leaving the user confused. Fixed by moving the local state mutation inside the `.then()` handler so it only runs when the server confirms 204.

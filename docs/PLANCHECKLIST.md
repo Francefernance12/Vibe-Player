@@ -318,6 +318,7 @@ This file is the first thing any agent or collaborator should read to understand
 - ✅ `shared/types.ts` — `SearchTrack` interface moved here from `server/src/routes/search.ts`
 - ✅ `server/src/routes/search.ts` — local `SearchTrack` interface replaced with `import type { SearchTrack } from '../../../shared/types'`
 - ✅ `server/src/tracks.ts` — dead `UPLOADS_DIR` constant removed (unused since Phase 5 Vercel Blob migration)
+- ✅ `server/db/index.ts` — dead `getPlaylistTrackById` export removed (superseded by `getPlaylistsWithTracks` JOIN query)
 - ✅ `client/src/hooks/usePlayer.ts` — dead `PlayerState` and `PlayerControls` exported interfaces removed
 - ✅ `client/src/components/PlayerBar.tsx` — `PlayerBarProps` renamed to `Props` (no external consumers)
 - ✅ `client/src/App.tsx` — `handleDeleteTrack` data consistency fix: local state only mutated on confirmed 204 server response
@@ -326,7 +327,7 @@ This file is the first thing any agent or collaborator should read to understand
 - ✅ `client/src/components/PlaylistPanel.tsx` — `aria-label` on filter input, clear button, new-playlist name input
 - ✅ `server/src/routes/tracks.ts` — Japanese filename encoding fix: `Buffer.from(originalname, 'latin1').toString('utf8')`
 - ✅ `server/src/__tests__/tracks.test.ts` — 2 unit tests for latin1→utf8 round-trip (ASCII unchanged; Japanese katakana recovered)
-- ✅ 54 server tests, 49 client tests pass
+- ✅ 49 client + 54 server = 103 tests pass
 
 ---
 

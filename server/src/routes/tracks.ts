@@ -76,6 +76,10 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: Reques
   }
   try {
     const db = getDb();
+    // busboy (used by multer) decodes multipart filenames as latin1 by default.
+    // Re-encoding as utf8 restores non-ASCII characters (e.g. Japanese, Chinese).
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+
     // Quota is fetched fresh on every upload request to avoid stale reads.
     // getUserUploadedBytes is called once per request here and once per
     // GET /api/user/quota request — these are separate HTTP calls, so
@@ -90,9 +94,9 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: Reques
       return;
     }
 
-    const ext = path.extname(req.file.originalname).toLowerCase();
+    const ext = path.extname(originalName).toLowerCase();
     const mimeType = AUDIO_MIME[ext] ?? req.file.mimetype;
-    const filename = `${Date.now()}-${req.file.originalname}`;
+    const filename = `${Date.now()}-${originalName}`;
 
     const { url } = await put(filename, req.file.buffer, {
       access: 'public',
@@ -104,7 +108,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: Reques
       id,
       user_id: req.user!.userId,
       filename,
-      original_name: req.file.originalname,
+      original_name: originalName,
       mime_type: mimeType,
       size: req.file.size,
       blob_url: url,
@@ -113,7 +117,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: Reques
     const track: Track = {
       id,
       filename,
-      originalName: req.file.originalname,
+      originalName,
       mimeType: mimeType,
       size: req.file.size,
       source: 'upload',
