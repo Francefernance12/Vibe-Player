@@ -8,13 +8,16 @@
 
 ## Project Context
 
-This is a lightweight music player web app.
+This is a lightweight music player web app called Vibe Player.
 
-- Frontend: React + TypeScript, Tailwind CSS, Howler.js
-- Backend: Node.js + Express
-- Database: SQLite via better-sqlite3 (Phase 3+)
+- Frontend: React + TypeScript, Tailwind CSS, Howler.js (Vite)
+- Backend: Node.js + Express (serverless via `api/index.ts`)
+- Database: Turso (libSQL / `@libsql/client`) — remote SQLite-compatible
+- File Storage: Vercel Blob (`@vercel/blob`) for user uploads
+- AI Chat: Groq (`llama-3.3-70b-versatile`)
+- Auth: JWT in httpOnly cookies (bcrypt + jsonwebtoken)
 - Testing: Jest + Supertest (backend), Vitest + React Testing Library (frontend)
-- Deployed on Vercel
+- Deployed on Vercel (static + serverless)
 
 ## Mandatory Code Style
 
@@ -30,7 +33,7 @@ This is a lightweight music player web app.
 - Every new Express endpoint gets a Supertest test.
 - Every new React component gets at least one Vitest test.
 - Run tests after every session before committing.
-- Use in-memory SQLite for all database tests (never the real file).
+- Use in-memory libSQL (`createClient({ url: ':memory:' })`) for all database tests (never the real Turso URL).
 
 ## Debugging Rules
 
@@ -41,24 +44,38 @@ This is a lightweight music player web app.
 
 ## File Structure
 
-`/client`        React/TS frontend (Vite)
-`/server`        Express backend
-`/shared`        Shared TypeScript types
-`/server/db`     SQLite database + migrations
-`/server/uploads`  Uploaded audio files (gitignored)
-`/server/samples`  Bundled sample tracks
+```
+/api             Vercel serverless entry point (wraps Express app)
+/client          React/TS frontend (Vite)
+/server          Express backend
+/shared          Shared TypeScript types (Track, SearchTrack, TrackSource)
+/server/db       libSQL database helpers + migrations
+/server/samples  Bundled sample tracks (served via stream endpoint)
+/docs            Architecture, decisions, plan, checklist docs
+```
 
+Note: there is no `/server/uploads` — user uploads go to Vercel Blob, not the filesystem.
 
+## Required Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `TURSO_DATABASE_URL` | Turso libSQL database URL |
+| `TURSO_AUTH_TOKEN` | Turso auth token |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob storage token |
+| `GROQ_API_KEY` | Groq LLM inference |
+| `JWT_SECRET` | JWT signing secret |
+| `PORT` | Local dev port (default 3001) |
+
+Set in `.env` locally (gitignored) and in Vercel project settings for production/preview.
 
 ## Documentation Rules
 
-- Add an entry to docs/[DECISIONS.md](http://DECISIONS.md) whenever a library or architecture choice is made.
+- Add an entry to `docs/DECISIONS.md` whenever a library or architecture choice is made.
+- `docs/PLANCHECKLIST.md` is updated at the end of every session.
+- Never write to `docs/REVIEW.md` — that belongs to the opencode sub-agent.
 
-- PLAN_[CHECKLIST.md](http://CHECKLIST.md) is updated at the end of every session.
-
-- Never write to docs/[REVIEW.md](http://REVIEW.md) — that belongs to the opencode sub-agent.
-
-## Quick Reference: Commands:
+## Quick Reference: Commands
 
 ```
 # Development
@@ -75,4 +92,3 @@ npm run test:server  # Jest (backend)
 vercel               # Preview deploy
 vercel --prod        # Production deploy
 ```
-
