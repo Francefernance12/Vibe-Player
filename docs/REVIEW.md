@@ -1002,3 +1002,49 @@ All 49 client tests and 52 server tests pass.
 - Add a migration idempotency test: run `initDb` twice on the same in-memory DB and assert no error and no duplicate rows.
 - Create `server/src/config.ts` with `FREE_QUOTA_BYTES` constant (flagged in Session 5D review, still unresolved) — would give a natural home for other constants like `RATE_LIMIT_WINDOW_MS`.
 - Consider adding `idx_users_email` to migration 005 — `users` is queried by email on every login/register. SQLite creates an implicit index for `UNIQUE` columns, but documenting it explicitly would be consistent with the other named indexes.
+
+---
+
+## Date: 2026-04-25
+
+## Branch Name: session-7c
+
+## What Changed
+
+15 files changed, 87 insertions(+), 124 deletions(-) — bug fix + code quality pass.
+
+### Files Modified:
+- `server/src/routes/tracks.ts` — `Buffer.from(req.file.originalname, 'latin1').toString('utf8')` restores non-ASCII upload filenames garbled by busboy's default Latin-1 multipart decoding
+- `server/src/__tests__/tracks.test.ts` — 2 new encoding tests: ASCII round-trip unchanged; Japanese katakana recovered from garbled latin1 bytes (54 server tests total)
+- `server/src/tracks.ts` — removed dead `UPLOADS_DIR` constant (unused since Phase 5 Vercel Blob migration)
+- `server/db/index.ts` — removed dead `getPlaylistTrackById` export (superseded by `getPlaylistsWithTracks`; no import sites)
+- `client/src/hooks/usePlayer.ts` — removed dead `PlayerState` and `PlayerControls` exported interfaces (no import sites)
+- `client/src/components/PlayerBar.tsx` — `PlayerBarProps` made module-private (no external consumers)
+- `shared/types.ts` — added `SearchTrack` interface (previously duplicated between client and server)
+- `client/src/types.ts` — converted to re-export barrel; all 14 import sites unaffected
+- `server/src/routes/search.ts` — replaced local `interface SearchTrack` with import from `shared/types.ts`
+- `client/src/App.tsx` — `handleDeleteTrack` now guards fetch failure: local state only mutated on confirmed deletion; `aria-label="Filter tracks"` added
+- `client/src/components/TrackList.tsx` — `⋮` button gets `aria-haspopup="menu"` and `aria-expanded`
+- `client/src/components/PlaylistPanel.tsx` — filter input, clear button, new-playlist input all get `aria-label`
+- `docs/DECISIONS.md` — type consolidation decision appended
+- `docs/PLAN.md` + `docs/PLANCHECKLIST.md` — Phase 7 marked complete; 7C entry updated; test count 103
+
+### Summary:
+Two commits: a targeted encoding bug fix followed by a full code quality pass via perf-optimizer. The encoding fix is load-bearing for international users — any non-ASCII filename (Japanese, Korean, Chinese, accented Latin) was stored garbled in Turso and returned garbled to the UI. Dead code removed: 5 unused exports across 4 files. `handleDeleteTrack` closes a real data consistency bug (failed DELETE previously caused track to disappear from UI but persist on server). Type consolidation moves `SearchTrack` to `shared/types.ts`. 49 client + 54 server = 103 tests pass.
+
+## Issues Spotted
+
+1. **`handleDeleteTrack` error path gives no user feedback**: The new guard prevents local state mutation on failure, but the user sees nothing when the DELETE fails. A toast or inline error would complete the fix.
+
+2. **`client/src/types.ts` barrel breaks on path alias change**: Uses relative `../../shared/types`. All 14 import sites would break if the shared path moves. Low risk — path is stable — but worth noting.
+
+3. **`getPlaylistTrackById` removal**: Flagged in Session 3B review as needed for ownership verification on delete/reorder. Ownership is checked at the route level instead, making it genuinely dead code. Removing is safe but the context is worth noting if the ownership pattern changes.
+
+4. **`SearchTrack` consolidation**: The `title` field is present in `shared/types.ts` version but the server's local version used `title` too — no mismatch. Confirmed consistent.
+
+## Suggestions
+
+- Add a toast on `handleDeleteTrack` failure to complete the UX fix (e.g. `react-hot-toast` or a simple `useState` error message).
+- Consider a `shared/index.ts` barrel so both client and server import from `'../../shared'` instead of `'../../shared/types'` — one path to update if the structure changes.
+- Evaluate moving `PlaylistItem` from `PlaylistContext.tsx` to `shared/types.ts` — the server playlist route tests currently re-derive the shape manually.
+- Phase 7 is complete. The three-session audit (7A frontend perf, 7B backend perf, 7C code quality) leaves the codebase in good shape for production hardening or a Phase 8.
