@@ -1,19 +1,2 @@
-export interface Track {
-  id: string
-  filename: string
-  originalName: string
-  mimeType: string
-  size: number
-  source: 'sample' | 'upload' | 'deezer'
-  externalUrl?: string
-}
-
-export interface SearchTrack {
-  id: string
-  title: string
-  artist: string
-  albumArt: string | null
-  previewUrl: string | null
-  durationMs: number
-  source: 'deezer'
-}
+/** Re-exports all shared types so client imports stay as '../types' or './types'. */
+export type { Track, SearchTrack, TrackSource } from '../../shared/types'

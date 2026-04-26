@@ -30,7 +30,7 @@ function RepeatIcon() {
   )
 }
 
-export interface PlayerBarProps {
+interface Props {
   currentTrack: Track | null
   nowPlayingName: string | null
   isPlaying: boolean
@@ -56,7 +56,7 @@ export const PlayerBar = memo(function PlayerBar({
   getDuration, getSeek, onSeek,
   shuffle, loopMode, onToggleShuffle, onCycleLoop,
   volume, onVolumeChange,
-}: PlayerBarProps) {
+}: Props) {
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => { if (hasTrack) onNext() },
     onSwipedRight: () => { if (hasTrack) onPrev() },

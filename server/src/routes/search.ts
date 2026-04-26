@@ -1,16 +1,7 @@
 import { Router, Request, Response } from 'express';
+import type { SearchTrack } from '../../../shared/types';
 
 const router = Router();
-
-export interface SearchTrack {
-  id: string;
-  title: string;
-  artist: string;
-  albumArt: string | null;
-  previewUrl: string | null;
-  durationMs: number;
-  source: 'deezer';
-}
 
 /** GET /api/search?q=<query> */
 router.get('/', async (req: Request, res: Response) => {

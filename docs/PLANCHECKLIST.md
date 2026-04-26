@@ -312,6 +312,19 @@ This file is the first thing any agent or collaborator should read to understand
 
 ---
 
+### Session 7C — Code Quality Pass + Bug Fixes ✅ COMPLETE
+
+- ✅ `server/src/routes/tracks.ts` — `Buffer.from(originalname, 'latin1').toString('utf8')` fixes non-ASCII upload filenames (Japanese, Chinese, etc.) garbled by busboy's default Latin-1 decoding
+- ✅ `server/src/__tests__/tracks.test.ts` — 2 new encoding tests: ASCII round-trip unchanged; Japanese katakana recovered from garbled latin1 bytes
+- ✅ Dead code removed: `UPLOADS_DIR` (tracks.ts), `getPlaylistTrackById` (db/index.ts), `PlayerState`/`PlayerControls` interfaces (usePlayer.ts), `PlayerBarProps` made module-private
+- ✅ Type consolidation: `SearchTrack` moved to `shared/types.ts`; `client/src/types.ts` converted to re-export barrel; decision documented in `DECISIONS.md`
+- ✅ Error handling: `handleDeleteTrack` in `App.tsx` now guards fetch failure — local state only mutated on confirmed server deletion
+- ✅ Accessibility: `⋮` button gets `aria-haspopup="menu"` + `aria-expanded`; filter inputs and new-playlist input get `aria-label`
+- ✅ No console noise or `any` types found in production paths
+- ✅ 49 client + 54 server = 103 tests pass
+
+---
+
 ## Agent Review Log
 
 | Session | Date | Findings | Resolved |

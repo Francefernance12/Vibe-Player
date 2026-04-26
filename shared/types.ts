@@ -12,3 +12,14 @@ export interface Track {
   source: TrackSource;
   externalUrl?: string;
 }
+
+/** A track returned by the Deezer search proxy. Used by both client and server. */
+export interface SearchTrack {
+  id: string;
+  title: string;
+  artist: string;
+  albumArt: string | null;
+  previewUrl: string | null;
+  durationMs: number;
+  source: 'deezer';
+}

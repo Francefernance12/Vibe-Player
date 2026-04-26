@@ -2,30 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { Howl } from 'howler'
 import { Track } from '../types'
 
-export interface PlayerState {
-  currentTrack: Track | null
-  isPlaying: boolean
-  volume: number
-  shuffle: boolean
-  loopMode: 'none' | 'track' | 'queue'
-}
-
-export interface PlayerControls {
-  play: (track: Track, context?: Track[]) => void
-  pause: () => void
-  resume: () => void
-  stop: () => void
-  next: () => void
-  prev: () => void
-  seek: (ratio: number) => void
-  setVolume: (v: number) => void
-  getDuration: () => number
-  getSeek: () => number
-  toggleShuffle: () => void
-  cycleLoop: () => void
-}
-
-export function usePlayer(libraryTracks: Track[]): PlayerState & PlayerControls {
+export function usePlayer(libraryTracks: Track[]) {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolumeState] = useState(1)

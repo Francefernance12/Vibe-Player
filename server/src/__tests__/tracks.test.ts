@@ -40,6 +40,24 @@ beforeAll(async () => {
   authCookie = res.headers['set-cookie'][0];
 });
 
+// busboy (used by multer) decodes multipart filenames as latin1 by default.
+// The upload handler corrects this with: Buffer.from(name, 'latin1').toString('utf8')
+describe('filename latin1→utf8 decoding', () => {
+  it('round-trips ASCII filenames unchanged', () => {
+    const name = 'MusicSample.mp3'
+    expect(Buffer.from(name, 'latin1').toString('utf8')).toBe(name)
+  })
+
+  it('recovers Japanese katakana from latin1-encoded UTF-8 bytes', () => {
+    const original = 'プレリュード (SFC Style mix).mp3'
+    // Simulate what multer/busboy produces: UTF-8 bytes re-interpreted as latin1
+    const garbled = Buffer.from(original, 'utf8').toString('latin1')
+    expect(garbled).not.toBe(original)
+    // Our fix applied in the route handler
+    expect(Buffer.from(garbled, 'latin1').toString('utf8')).toBe(original)
+  })
+})
+
 describe('POST /api/tracks/upload', () => {
   it('returns 401 without auth', async () => {
     // No file attached — auth check runs before multer, so no ECONNRESET

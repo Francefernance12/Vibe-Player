@@ -205,7 +205,17 @@ function Player() {
 
   const handleDeleteTrack = useCallback(async (track: Track) => {
     if (track.source === 'upload') {
-      await fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+      try {
+        const res = await fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          console.error('Delete failed:', body?.error ?? res.status)
+          return
+        }
+      } catch (err) {
+        console.error('Delete request failed:', err)
+        return
+      }
       refreshQuota()
     }
     setTracks(prev => {
@@ -347,6 +357,7 @@ function Player() {
                 <input
                   type="text"
                   placeholder="Filter tracks…"
+                  aria-label="Filter tracks"
                   value={filterText}
                   onChange={e => setFilterText(e.target.value)}
                   className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
