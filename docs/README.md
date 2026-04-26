@@ -148,6 +148,8 @@ Vibe Player was built as part of an AI agentic development course. The goal was 
 
 Each session had a defined scope (e.g. "add auth endpoints", "build the chat assistant"), ended with a full test run and a commit, and was reviewed by a separate sub-agent (OpenCode) before merging. The `docs/` folder tracks every architectural decision, session checkpoint, and code review in a way that makes the development process itself auditable.
 
+The session structure was also shaped by a practical constraint: Claude Code's Pro plan resets usage every 5 hours. Rather than treating this as a limitation, it became a forcing function for good engineering discipline — each session had to be small enough to complete within the window, which meant breaking problems down into focused, shippable increments instead of attempting large unfocused changes. Every phase maps to one or more of these sessions, and the habit of scoping work tightly carried through the entire project.
+
 ### Development Workflow
 
 Each session followed the same pattern: create a `session-Xa` branch off `main`, implement the scoped feature, run the full test suite, then run `/commitReview` — which invokes the OpenCode sub-agent to write a code review to `docs/REVIEW.md` and open a GitHub PR. After the PR merges, `git pull` on `main` before starting the next session. Phase 7 sessions additionally used the `perf-optimizer` custom agent (`.claude/agents/perf-optimizer.md`) — a two-stage audit-then-implement workflow that produces a ranked findings list and waits for explicit approval before touching any code.
