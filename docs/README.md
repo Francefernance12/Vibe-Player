@@ -67,7 +67,7 @@ The project is currently in a maintenance phase. Potential next steps include:
 - **Paid tiers** — The pricing mockup (`feature/pricing-mockup` branch) is a UI-only scaffold. Wiring in Stripe would be the next step.
 - **Collaborative playlists** — Share a playlist link and let others add tracks.
 - **Offline mode** — Service worker + Cache API for offline playback of previously loaded tracks.
-- **Playlist sync debounce** — The current `PUT /api/playlists/:id/tracks` fires on every mutation. A debounce would reduce network calls during rapid reordering.
+- **Playlist sync debounce** — ✅ Reorder calls are already debounced 400ms (Session 7A). Add/remove calls still fire immediately.
 
 ---
 
@@ -121,7 +121,7 @@ This starts both the Express backend on `http://localhost:3001` and the Vite fro
 ### 5. Run the tests
 
 ```bash
-npm run test:server   # 52 Jest + Supertest tests
+npm run test:server   # 54 Jest + Supertest tests
 npm run test:client   # 49 Vitest + React Testing Library tests
 ```
 

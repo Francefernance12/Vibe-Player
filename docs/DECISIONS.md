@@ -74,8 +74,8 @@ Replaced the default indigo Tailwind accent with a cohesive "Wax" design system:
 **Search results as absolute overlay**
 `SearchResults` is positioned `absolute top-full z-50` inside a `relative` wrapper, floating over the layout rather than pushing content down. This prevents the search dropdown from reflowing the playlist and track list panels beneath it.
 
-**Dual Track type definition (known divergence)**
-`client/src/types.ts` defines its own `Track` interface rather than re-exporting from `shared/types.ts`. Any new field added to the shared type must also be added to the client copy. The divergence was caught by the Vercel build when `externalUrl` was added to `shared/types.ts` but not `client/src/types.ts`. When the DB lands, consolidate to a single source of truth.
+**~~Dual Track type definition (known divergence)~~ — resolved in Session 7C**
+`client/src/types.ts` originally defined its own `Track` interface in parallel with `shared/types.ts`. The divergence was caught by the Vercel build when `externalUrl` was added to `shared/types.ts` but not the client copy. In Session 7C, `client/src/types.ts` was converted to a re-export barrel (`export type { Track, SearchTrack, TrackSource } from '../../shared/types'`). `SearchTrack` was also migrated from a local interface in `server/src/routes/search.ts` to `shared/types.ts`. `shared/types.ts` is now the single source of truth for all shared types.
 
 ---
 
@@ -276,3 +276,47 @@ Generates high-quality, production-grade UI code with a distinct visual style. A
 
 **vercel-react-best-practices skill**
 A curated set of Vercel engineering rules (re-render avoidance, ref-based transient values, memoization, bundle hygiene). Consulted before writing any React component. The ProgressBar's ref-based tick update is a direct result of this skill's `rerender-use-ref-transient-values` rule.
+
+---
+
+## Phase 7 — Optimization & Code Quality
+
+### Session 7A — Frontend Performance
+
+**`useChat` stale closure fix via refs**
+`sendMessage` read `messages` and `isLoading` from state, but both were captured in a closure from the last render. Adding a read operation (like checking history length) before the Groq call would see a stale array. Replaced with `messagesRef` and `isLoadingRef` written on every state change. `sendMessage` reads refs, not state — eliminates the stale closure entirely. State variables are retained solely for triggering re-renders.
+
+**`Tooltip` 60fps setState eliminated**
+The original `Tooltip` tracked cursor position with `useState({ x, y })`, causing a React re-render on every `mousemove` event (~60fps). Replaced with `posRef` (a plain ref) and direct writes to `cardRef.current.style.left`/`.bottom`. The boolean `visible` state is kept for show/hide since that does need a render cycle.
+
+**`PlaylistContext` reorder debounce**
+`PUT /api/playlists/:id/tracks` was firing on every `onDragEnd` event, including intermediate reorder steps. A 400ms debounce via `reorderDebounceRef` batches rapid drag events into a single network request. Local state is still updated immediately (optimistic), so the UI remains responsive. This reduces Turso write pressure during active DnD sessions.
+
+**`React.memo` on `PlayerBar` and `ProgressBar`**
+Both components receive stable props (player callbacks wired with `useCallback`) and re-rendered on every `App` state change (e.g., track selection, search input changes). Wrapping with `React.memo` prevents unnecessary re-renders with no functional change.
+
+---
+
+### Session 7B — Backend Performance
+
+**N+1 elimination in `GET /api/playlists`**
+The original handler fetched playlists for the user, then `Promise.all`-ed a `getTracksByPlaylist` call per playlist — N round-trips to Turso for N playlists. Each Turso round-trip is ~50ms; 5 playlists = ~300ms worst case. Replaced with `getPlaylistsWithTracks`, a single LEFT JOIN query that returns all playlists and their tracks in one request. Worst-case latency drops to ~50ms regardless of playlist count.
+
+**`db.executeMultiple` for multi-statement migrations**
+`@libsql/client`'s `db.execute(sql)` only runs the first statement in a semicolon-separated SQL string — subsequent statements are silently ignored. `db.executeMultiple(sql)` runs all statements. The migration runner used `db.execute`, which meant `005_add_indexes.sql` (three `CREATE INDEX` statements) would only apply the first index. Fixed by switching the runner to `db.executeMultiple`.
+
+**DB indexes applied (migration 005)**
+`idx_playlists_user_id`, `idx_playlist_tracks_playlist_id`, and `idx_uploaded_tracks_user_id` were specified in `DATABASE_SCHEMA.md` but never applied. Migration 005 adds all three. At current data volumes these are precautionary, but they eliminate full-table scans on the most common query patterns (user-scoped lookups).
+
+---
+
+### Session 7C — Code Quality
+
+**Type consolidation: `shared/types.ts` as single source of truth**
+See Phase 2 Polish — "Dual Track type definition" entry above for the history. The resolution: `client/src/types.ts` is now a re-export barrel; `SearchTrack` moved to `shared/types.ts`; the local `SearchTrack` interface in `server/src/routes/search.ts` replaced with a shared import. No runtime behaviour changed — pure structural cleanup.
+
+**`handleDeleteTrack` data consistency fix**
+The original `handleDeleteTrack` in `App.tsx` called `DELETE /api/tracks/:id`, then unconditionally removed the track from local state — even if the network request failed. This caused the track to disappear from the UI on a failed delete and reappear on the next page load, leaving the user confused. Fixed by moving the local state mutation inside the `.then()` handler so it only runs when the server confirms 204.
+
+**Japanese filename encoding fix (multer / busboy)**
+`multer`'s underlying `busboy` library decodes multipart form `filename` bytes as Latin-1 by default. UTF-8 filenames (e.g. Japanese, Chinese, accented characters) are garbled in `req.file.originalname`. Fix: `Buffer.from(req.file.originalname, 'latin1').toString('utf8')` re-encodes the bytes correctly. ASCII filenames are unaffected (ASCII is a subset of both Latin-1 and UTF-8). Covered by a unit-level test that round-trips a Japanese katakana filename through the Buffer conversion — an integration test was not feasible because `form-data` (used by supertest) strips control character bytes from filenames before sending.

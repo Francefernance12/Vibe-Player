@@ -303,75 +303,25 @@ Unified `PlayerBar` (renamed from `MobilePlayerBar`) always visible at bottom. L
 
 ---
 
-## Phase 7 — Optimization & Code Quality ⬜ NOT STARTED
-
-**Goal**: Systematically audit and improve performance, reduce redundant work, and enforce code best practices across the entire codebase. This phase is reviewed and executed by the **`perf-optimizer`** agent.
-
-> **Trigger**: This phase begins only when the user explicitly says **"go"**. Do not start any session work until that signal is given.
+## Phase 7 — Optimization & Code Quality ✅ COMPLETE
 
 ---
 
-### Session 7A — Frontend Performance Audit ⬜ NOT STARTED
+### Session 7A — Frontend Performance Audit ✅ COMPLETE
 
-**Scope**: `client/src/` — hooks, components, contexts.
-
-**Agent**: `perf-optimizer` on `client/src/hooks`, then `client/src/components`, then `client/src/contexts`.
-
-**Areas to audit**:
-- Unnecessary re-renders: components re-rendering on every parent update that don't need to
-- Missing `useMemo` / `useCallback` / `React.memo` on expensive computations or stable callbacks
-- Redundant API calls: `useEffect` fetches that fire more often than needed (e.g., `useQuota` not being debounced after rapid deletes)
-- `requestAnimationFrame` loop in `ProgressBar` — verify it is properly cancelled on unmount
-- `PlaylistContext` — `PUT /api/playlists/:id/tracks` fires on every reorder drag step; add debounce
-- `localStorage` reads on every render vs. reading once on mount
-- Bundle size regression check: run `rollup-plugin-visualizer` and compare against Phase 4A baseline (94 kB gzip)
-
-**Deliverables**:
-- Refactored files with documented changes
-- Updated tests to cover any changed behaviour
-- Lighthouse re-run (mobile) — target: maintain or improve Phase 4A scores (92/92/96/82)
+`useChat` stale closure fix (`messagesRef` + `isLoadingRef`). `Tooltip` 60fps setState eliminated — `posRef` + direct style writes. `PlaylistContext` reorder PUT debounced 400ms. `PlayerBar` and `ProgressBar` wrapped with `React.memo`. `SearchBar` `useEffect` dep array fix. Bundle: 105 kB gzip.
 
 ---
 
-### Session 7B — Backend Performance Audit ⬜ NOT STARTED
+### Session 7B — Backend Performance Audit ✅ COMPLETE
 
-**Scope**: `server/src/routes/`, `server/db/index.ts`.
-
-**Agent**: `perf-optimizer` on `server/src/routes`, then `server/db`.
-
-**Areas to audit**:
-- N+1 query risk in `GET /api/playlists` — currently loads playlists then tracks per playlist in separate calls; consider a single JOIN query
-- `getUserUploadedBytes` called on every upload AND every quota check — evaluate caching per request
-- `replacePlaylistTracks` uses a `db.batch()` write — verify atomicity and error handling if the batch partially fails
-- Auth middleware runs JWT verification on every request including public routes — verify early-exit paths are correct
-- Rate limiter in-memory store — document that it resets on cold start (Vercel); flag if this matters for abuse prevention
-- Missing indexes: `idx_playlists_user_id`, `idx_playlist_tracks_playlist_id`, `idx_uploaded_tracks_user_id` from `DATABASE_SCHEMA.md` are not yet applied — evaluate if query volume justifies adding them
-
-**Deliverables**:
-- Refactored DB helpers or route handlers with benchmarks/notes
-- Any new migration file if indexes are added (e.g., `005_add_indexes.sql`)
-- All 52 server tests still passing
+`GET /api/playlists` N+1 eliminated — `getPlaylistsWithTracks` via single LEFT JOIN. `server/db/migrate.ts`: `db.execute` → `db.executeMultiple` (prerequisite for multi-statement migrations). `005_add_indexes.sql`: three `CREATE INDEX IF NOT EXISTS` for `playlists(user_id)`, `playlist_tracks(playlist_id)`, `uploaded_tracks(user_id)`. Atomicity and cold-start rate-limit reset documented. 52 server tests pass.
 
 ---
 
-### Session 7C — Code Quality Pass ⬜ NOT STARTED
+### Session 7C — Code Quality Pass ✅ COMPLETE
 
-**Scope**: Full codebase.
-
-**Agent**: `perf-optimizer` (quality mode) across all changed files.
-
-**Areas to audit**:
-- Dead code: exported functions/types not imported anywhere
-- `client/src/types.ts` vs `shared/types.ts` divergence — evaluate consolidating to a single `Track` definition
-- Error handling gaps: any `fetch()` call without a `.catch()` or error state
-- Accessibility: interactive elements missing `aria-label` (already noted for `⋮` button in `REVIEW.md`)
-- Console statements left in production paths
-- TypeScript `any` or suppressed lint warnings that should be resolved
-
-**Deliverables**:
-- Cleaned-up files
-- Updated `docs/DECISIONS.md` with any consolidation decisions made
-- All 101 tests still passing
+`client/src/types.ts` converted to re-export barrel from `shared/types.ts` (resolves known divergence). `SearchTrack` moved to `shared/types.ts`; local interface removed from `server/src/routes/search.ts`. Dead exports removed: `UPLOADS_DIR`, `PlayerState`, `PlayerControls`, `PlayerBarProps`. `handleDeleteTrack` data consistency fix — local state only mutated on confirmed 204. Accessibility: `aria-label` added to filter inputs, `aria-haspopup`/`aria-expanded` on `⋮` button. Japanese filename encoding fix: `Buffer.from(originalname, 'latin1').toString('utf8')` in upload handler. 54 server tests, 49 client tests.
 
 ---
 

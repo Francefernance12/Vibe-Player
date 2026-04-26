@@ -312,6 +312,24 @@ This file is the first thing any agent or collaborator should read to understand
 
 ---
 
+### Session 7C — Code Quality Pass ✅ COMPLETE
+
+- ✅ `client/src/types.ts` — converted to re-export barrel from `shared/types.ts` (resolves Phase 2 known divergence)
+- ✅ `shared/types.ts` — `SearchTrack` interface moved here from `server/src/routes/search.ts`
+- ✅ `server/src/routes/search.ts` — local `SearchTrack` interface replaced with `import type { SearchTrack } from '../../../shared/types'`
+- ✅ `server/src/tracks.ts` — dead `UPLOADS_DIR` constant removed (unused since Phase 5 Vercel Blob migration)
+- ✅ `client/src/hooks/usePlayer.ts` — dead `PlayerState` and `PlayerControls` exported interfaces removed
+- ✅ `client/src/components/PlayerBar.tsx` — `PlayerBarProps` renamed to `Props` (no external consumers)
+- ✅ `client/src/App.tsx` — `handleDeleteTrack` data consistency fix: local state only mutated on confirmed 204 server response
+- ✅ `client/src/App.tsx` — `aria-label="Filter tracks"` on filter input
+- ✅ `client/src/components/TrackList.tsx` — `⋮` button gets `aria-haspopup="menu"` and `aria-expanded`
+- ✅ `client/src/components/PlaylistPanel.tsx` — `aria-label` on filter input, clear button, new-playlist name input
+- ✅ `server/src/routes/tracks.ts` — Japanese filename encoding fix: `Buffer.from(originalname, 'latin1').toString('utf8')`
+- ✅ `server/src/__tests__/tracks.test.ts` — 2 unit tests for latin1→utf8 round-trip (ASCII unchanged; Japanese katakana recovered)
+- ✅ 54 server tests, 49 client tests pass
+
+---
+
 ## Agent Review Log
 
 | Session | Date | Findings | Resolved |
@@ -325,3 +343,4 @@ This file is the first thing any agent or collaborator should read to understand
 | 6C | 2026-04-24 | Tooltip transform/animation conflict causing placement issues | ✅ Fixed: bottom anchor approach |
 | 7A | 2026-04-25 | `PlayerBar` memo bypassed if parent passes inline callbacks; `SearchBar` dep fix is a behavioral change | ⬜ Low risk, accepted |
 | 7B | 2026-04-25 | `db.batch` already atomic — no code change needed; rate limiter resets on cold start (documented) | ✅ Documented |
+| 7C | 2026-04-25 | `client/src/types.ts` divergence resolved; dead exports cleaned; encoding fix for non-ASCII filenames; data consistency bug in `handleDeleteTrack` | ✅ Fixed |

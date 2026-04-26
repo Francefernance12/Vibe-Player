@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-04-24 (Session 4C)
+Last updated: 2026-04-25 (Session 7C)
 
 ---
 
@@ -37,7 +37,7 @@ Vibe Player is a full-stack music player web app deployed on Vercel. The fronten
 │   ├── index.html            ← Google Fonts (Syne, JetBrains Mono, Cormorant Garamond)
 │   └── src/
 │       ├── App.tsx           ← Root: AuthGate + Player layout + tab state
-│       ├── types.ts          ← Client-side Track, SearchTrack, Playlist interfaces
+│       ├── types.ts          ← Re-export barrel: Track, SearchTrack, TrackSource from shared/types.ts
 │       ├── components/
 │       │   ├── PlayerBar.tsx       ← Fixed bottom bar: controls, shuffle, loop, volume
 │       │   ├── PlayerControls.tsx  ← Prev/play/next buttons
@@ -72,7 +72,8 @@ Vibe Player is a full-stack music player web app deployed on Vercel. The fronten
 │   │       ├── 001_create_users.sql
 │   │       ├── 002_create_playlists.sql
 │   │       ├── 003_create_playlist_tracks.sql
-│   │       └── 004_create_uploaded_tracks.sql
+│   │       ├── 004_create_uploaded_tracks.sql
+│   │       └── 005_add_indexes.sql
 │   ├── samples/               ← Bundled royalty-free MP3s (served via stream endpoint)
 │   └── src/
 │       ├── app.ts             ← Express app; route registration; error middleware
@@ -205,13 +206,15 @@ cors
 | `getDb()` | Returns (or creates) the `@libsql/client` instance |
 | `initDb(db?)` | Runs migrations + `PRAGMA foreign_keys = ON` |
 | `createUser` | Insert user with hashed password |
-| `findUserByEmail` | Look up user for login |
+| `getUserByEmail` | Look up user for login |
 | `createPlaylist` | Insert playlist row |
-| `getPlaylists` | List playlists for a user |
+| `getPlaylistsByUser` | List playlists for a user |
+| `getPlaylistsWithTracks` | List playlists + all tracks via single LEFT JOIN (N+1-free) |
 | `deletePlaylist` | Delete playlist row |
-| `setPlaylistTracks` | Replace track list (full-replace) |
+| `replacePlaylistTracks` | Replace track list (full-replace, atomic via `db.batch`) |
 | `createUploadedTrack` | Insert uploaded track metadata |
-| `getUploadedTracks` | List user's uploaded tracks |
+| `getUploadedTracksByUser` | List user's uploaded tracks |
+| `getUploadedTrackById` | Look up single upload by UUID (ownership check) |
 | `deleteUploadedTrack` | Delete track row |
 | `getUserUploadedBytes` | `SUM(size)` for quota check |
 
@@ -271,7 +274,7 @@ FileUpload drag/drop → FormData → POST /api/tracks/upload
 
 ## Testing Strategy
 
-**Backend (Jest + Supertest)** — 52 tests across 7 files. Each test file uses `createClient({ url: ':memory:' })` with `await initDb(db)` in `beforeAll`/`beforeEach`. Route handlers are tested through the full Express app via Supertest — no unit mocks of Express layers. Auth tests use real bcrypt + JWT; Blob upload tests mock `@vercel/blob.put`.
+**Backend (Jest + Supertest)** — 54 tests across 7 files. Each test file uses `createClient({ url: ':memory:' })` with `await initDb(db)` in `beforeAll`/`beforeEach`. Route handlers are tested through the full Express app via Supertest — no unit mocks of Express layers. Auth tests use real bcrypt + JWT; Blob upload tests mock `@vercel/blob.put`.
 
 | File | Covers |
 |---|---|
@@ -279,7 +282,7 @@ FileUpload drag/drop → FormData → POST /api/tracks/upload
 | `auth.test.ts` | Register, login, logout, /me, duplicate email |
 | `db.test.ts` | All DB helper functions (in-memory) |
 | `playlists.test.ts` | CRUD + track sync endpoints |
-| `tracks.test.ts` | Upload quota check; delete ownership |
+| `tracks.test.ts` | Upload quota check; delete ownership; latin1→utf8 filename encoding |
 | `quota.test.ts` | /api/user/quota: 401, 200 with used/limit/tier |
 | `chat.test.ts` | /api/chat: auth, rate limit (mocked Groq) |
 
