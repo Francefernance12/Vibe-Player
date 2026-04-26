@@ -342,7 +342,31 @@ npm run test:client   # Vitest + React Testing Library
 
 # Deploy
 vercel --prod
-
-
 ```
+
+---
+
+## Branching Strategy
+
+Every session gets its own branch. Never commit session work directly to `main`.
+
+```bash
+# Start of session
+git checkout main
+git pull origin main
+git checkout -b session-Xa   # e.g. session-3a, session-7c
+
+# End of session — after tests pass
+/commitReview                 # pushes branch, opens PR into main
+
+# After PR is merged
+git checkout main
+git pull origin main
+```
+
+Branch naming:
+- `session-{phase}{letter}` for planned sessions (e.g. `session-7b`)
+- `feature/{name}` for out-of-band work (e.g. `feature/pricing-mockup`)
+
+`/commitReview` invokes the opencode sub-agent, which appends a review to `docs/REVIEW.md`, commits it, pushes the branch, and opens a GitHub PR. If opencode hangs on an interactive prompt, fall back to manual: write the review directly, `git add && git commit`, `git push`, `gh pr create`.
 

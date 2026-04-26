@@ -277,6 +277,9 @@ Generates high-quality, production-grade UI code with a distinct visual style. A
 **vercel-react-best-practices skill**
 A curated set of Vercel engineering rules (re-render avoidance, ref-based transient values, memoization, bundle hygiene). Consulted before writing any React component. The ProgressBar's ref-based tick update is a direct result of this skill's `rerender-use-ref-transient-values` rule.
 
+**`perf-optimizer` custom agent**
+A project-local Claude Code sub-agent defined in `.claude/agents/perf-optimizer.md`. Implements a strict two-stage workflow: Stage 1 produces a ranked audit list (top 5 findings, ROI-ordered) and halts for user approval before touching any code; Stage 2 implements only the approved changes one at a time, then runs the test suite and reports results. Used for all three Phase 7 sessions (7A frontend, 7B backend, 7C code quality). The agent maintains persistent memory in `.claude/agent-memory/perf-optimizer/` — recording recurring bottleneck patterns, architectural constraints, and per-session outcomes — so institutional knowledge accumulates across sessions without re-deriving it from code.
+
 ---
 
 ## Phase 7 — Optimization & Code Quality
