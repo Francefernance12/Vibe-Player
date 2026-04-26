@@ -50,7 +50,7 @@ A full-stack music player web app built incrementally across multiple sessions a
 
 **Vercel Blob for uploads** — Same problem as the database: files written to `/tmp` disappear between invocations. Vercel Blob stores files on a CDN and returns a permanent public URL that lives in Turso alongside the track metadata.
 
-`**useRef` for Howler closures** — Howl's `onend` callback is captured in a closure at construction time. Shuffle mode, loop mode, and the current queue are stored in `useRef` so the closure always reads current values without re-creating the Howl object on every state change.
+**`useRef` for Howler closures** — Howl's `onend` callback is captured in a closure at construction time. Shuffle mode, loop mode, and the current queue are stored in `useRef` so the closure always reads current values without re-creating the Howl object on every state change.
 
 **Portal rendering for overlays** — Track tooltips, mobile context menus, the info bottom sheet, and the pricing page all render via `createPortal` to `document.body`. This sidesteps z-index and `overflow: hidden` clipping from the track list container.
 
@@ -158,4 +158,4 @@ Each session followed the same pattern: create a `session-Xa` branch off `main`,
 
 ### Course Link
 
-[Ed Donner Udemy Agentic AI course](www.udemy.com/course/ai-coder-from-vibe-coder-to-agentic-engineer)
+[Ed Donner Udemy Agentic AI course](https://www.udemy.com/course/ai-coder-from-vibe-coder-to-agentic-engineer)
