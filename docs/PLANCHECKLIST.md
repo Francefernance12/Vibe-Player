@@ -345,3 +345,4 @@ This file is the first thing any agent or collaborator should read to understand
 | 7A | 2026-04-25 | `PlayerBar` memo bypassed if parent passes inline callbacks; `SearchBar` dep fix is a behavioral change | ⬜ Low risk, accepted |
 | 7B | 2026-04-25 | `db.batch` already atomic — no code change needed; rate limiter resets on cold start (documented) | ✅ Documented |
 | 7C | 2026-04-25 | `client/src/types.ts` divergence resolved; dead exports cleaned; encoding fix for non-ASCII filenames; data consistency bug in `handleDeleteTrack` | ✅ Fixed |
+| Post-7 | 2026-05-03 | Deezer library tracks stored in localStorage only — lost on device switch | ✅ Fixed: `deezer_tracks` table + server endpoints |
