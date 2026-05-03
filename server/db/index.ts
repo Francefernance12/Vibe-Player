@@ -219,6 +219,56 @@ export async function getUserUploadedBytes(db: Client, userId: string): Promise<
   return Number(rows[0].total)
 }
 
+// --- Deezer library tracks ---
+
+export interface DbDeezerTrack {
+  id: string
+  user_id: string
+  title: string
+  artist: string
+  album_art: string | null
+  preview_url: string | null
+  duration_ms: number
+  created_at: string
+}
+
+function toDbDeezerTrack(r: Row): DbDeezerTrack {
+  return {
+    id: String(r.id),
+    user_id: String(r.user_id),
+    title: String(r.title),
+    artist: String(r.artist),
+    album_art: r.album_art != null ? String(r.album_art) : null,
+    preview_url: r.preview_url != null ? String(r.preview_url) : null,
+    duration_ms: Number(r.duration_ms),
+    created_at: String(r.created_at),
+  }
+}
+
+export async function saveDeezerTrack(db: Client, track: Omit<DbDeezerTrack, 'created_at'>): Promise<DbDeezerTrack> {
+  const created_at = new Date().toISOString()
+  await db.execute({
+    sql: 'INSERT OR REPLACE INTO deezer_tracks (id, user_id, title, artist, album_art, preview_url, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    args: [track.id, track.user_id, track.title, track.artist, track.album_art, track.preview_url, track.duration_ms, created_at],
+  })
+  return { ...track, created_at }
+}
+
+export async function getDeezerTracksByUser(db: Client, userId: string): Promise<DbDeezerTrack[]> {
+  const { rows } = await db.execute({
+    sql: 'SELECT * FROM deezer_tracks WHERE user_id = ? ORDER BY created_at ASC',
+    args: [userId],
+  })
+  return rows.map(toDbDeezerTrack)
+}
+
+export async function deleteDeezerTrack(db: Client, id: string, userId: string): Promise<void> {
+  await db.execute({
+    sql: 'DELETE FROM deezer_tracks WHERE id = ? AND user_id = ?',
+    args: [id, userId],
+  })
+}
+
 // --- Playlist tracks ---
 
 export async function getTracksByPlaylist(db: Client, playlistId: string): Promise<DbPlaylistTrack[]> {

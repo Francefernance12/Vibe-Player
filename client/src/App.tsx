@@ -193,15 +193,37 @@ function Player() {
     }
   }, [player])
 
-  const handleAddDeezerToTracks = useCallback((result: SearchTrack) => {
+  const handleAddDeezerToTracks = useCallback(async (result: SearchTrack) => {
     const track = makeSyntheticTrack(result)
     setTracks(prev => {
       if (prev.some(t => t.id === track.id)) return prev
-      const next = [...prev, track]
-      saveDeezerTracks(next)
-      return next
+      return [...prev, track]
     })
-  }, [])
+    if (user) {
+      try {
+        await fetch('/api/tracks/deezer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: result.id,
+            title: result.title,
+            artist: result.artist,
+            albumArt: result.albumArt,
+            previewUrl: result.previewUrl,
+            durationMs: result.durationMs,
+          }),
+        })
+      } catch (err) {
+        console.error('Failed to save Deezer track to server:', err)
+        setTracks(prev => prev.filter(t => t.id !== track.id))
+      }
+    } else {
+      setTracks(prev => {
+        saveDeezerTracks(prev)
+        return prev
+      })
+    }
+  }, [user])
 
   const handleDeleteTrack = useCallback(async (track: Track) => {
     if (track.source === 'upload') {
@@ -217,15 +239,21 @@ function Player() {
         return
       }
       refreshQuota()
+    } else if (track.source === 'deezer' && user) {
+      try {
+        await fetch(`/api/tracks/deezer/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+      } catch (err) {
+        console.error('Failed to delete Deezer track from server:', err)
+      }
     }
     setTracks(prev => {
       const next = prev.filter(t => t.filename !== track.filename)
-      saveDeezerTracks(next)
+      if (!user) saveDeezerTracks(next)
       return next
     })
     removeTrackFromAllPlaylists(track.id)
     if (player.currentTrack?.filename === track.filename) player.stop()
-  }, [player, refreshQuota, removeTrackFromAllPlaylists])
+  }, [player, refreshQuota, removeTrackFromAllPlaylists, user])
 
   const library = useMemo(
     () => tracks.map(t => ({ id: t.id, name: t.originalName.replace(/\.[^.]+$/, '') })).slice(0, 40),
