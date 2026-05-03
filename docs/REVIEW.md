@@ -2,6 +2,50 @@
 
 ---
 
+## Date: 2026-05-03
+
+## Branch Name: fix/deezer-library-cross-device
+
+## What Changed
+
+1 commit, 7 files changed, 241 insertions / 11 deletions.
+
+**Root cause fixed**: Deezer tracks added to the library via the "Add to Library" button in SearchResults were persisted exclusively to `localStorage` (`deezer-library-tracks` key). `localStorage` is per-browser, per-device — opening the app on any other device returned an empty key and those tracks never appeared.
+
+### New files
+- `server/db/migrations/006_create_deezer_tracks.sql` — new `deezer_tracks` table with composite PK `(id, user_id)`.
+
+### Modified files
+- `server/db/index.ts` — `DbDeezerTrack` interface + `saveDeezerTrack` (upsert via `INSERT OR REPLACE`), `getDeezerTracksByUser`, `deleteDeezerTrack` helpers.
+- `server/src/routes/tracks.ts` — `GET /api/tracks` now fetches both uploads and Deezer tracks via `Promise.all`; added `POST /api/tracks/deezer` (auth required) and `DELETE /api/tracks/deezer/:id` (auth required).
+- `client/src/App.tsx` — `handleAddDeezerToTracks` calls `POST /api/tracks/deezer` when logged in (optimistic state update, rollback on error); `handleDeleteTrack` calls `DELETE /api/tracks/deezer/:id` for Deezer source tracks; `localStorage` path retained for unauthenticated users only.
+- `server/src/__tests__/tracks.test.ts` — 7 new tests (401 without auth, 400 on missing fields, 201 with correct shape, GET includes Deezer track, DELETE 204, GET after delete shows empty, 401 DELETE without auth). 61 total server tests pass.
+- `docs/DECISIONS.md` / `docs/PLANCHECKLIST.md` — decision and session entry added.
+
+## Issues Spotted
+
+1. **No rollback on `POST /api/tracks/deezer` failure in `handleAddDeezerToTracks`**: The optimistic update adds the track to state immediately, then calls the server. On failure the track is removed again — correct. However, if the component unmounts between the optimistic update and the error callback (e.g. user logs out mid-flight), `setTracks` is called on an unmounted component, producing a React warning. Low severity; a cancellation ref or `useEffect` cleanup would suppress it.
+
+2. **`DELETE /api/tracks/deezer/:id` returns 204 even when no row was deleted**: `deleteDeezerTrack` executes an unconditional `DELETE WHERE id = ? AND user_id = ?`. If the ID doesn't exist (already deleted, wrong user), no row is affected and no error is raised. The route still returns 204. This is idempotent, which is a valid REST design choice, but if callers need to distinguish "deleted" from "not found," this would need a rows-affected check. Acceptable for current usage.
+
+3. **Deezer preview URL in `deezer_tracks.preview_url` can go stale**: Deezer CDN URLs (`cdns-preview-*.dzcdn.net`) are generally long-lived CDN assets, but they can expire or become geo-restricted. The stored URL is never refreshed — if it expires, playback silently fails. The Deezer track ID is stored and could be used to re-fetch a fresh preview URL. Documenting this as a known limitation would be appropriate.
+
+4. **`GET /api/tracks` now makes two concurrent DB calls** (`getUploadedTracksByUser` + `getDeezerTracksByUser`) via `Promise.all`. At current Turso latency (~50ms per query), this is ~50ms total (parallel). If a third per-user query is added in the future, the same pattern scales correctly.
+
+5. **`saveDeezerTracks(next)` in the unauthenticated branch** calls `setTracks(prev => { saveDeezerTracks(prev); return prev; })` — this causes a side-effect inside a `setTracks` updater callback, which React may call more than once in Strict Mode (development only). Acceptable in practice but consider moving `saveDeezerTracks(next)` outside the `setTracks` callback.
+
+## Suggestions
+
+1. **Add a `useEffect` cleanup / abort flag** to `handleAddDeezerToTracks` so the rollback `setTracks` call is safely skipped if the component unmounts mid-request. A simple `let cancelled = false` with `return () => { cancelled = true }` in a cleanup pattern is sufficient.
+
+2. **Move `saveDeezerTracks` call outside `setTracks` updater**: In the unauthenticated path, compute `next` before calling `setTracks`, then call `saveDeezerTracks(next)` and `setTracks(next)` sequentially. This avoids the Strict Mode double-invocation edge case.
+
+3. **Document Deezer URL expiry in DECISIONS.md**: Note that `preview_url` is snapshotted at save time and not automatically refreshed. If URL expiry is observed in production, a re-fetch via `GET /api/search?q={title} {artist}` using the stored metadata fields would yield a fresh URL.
+
+4. **Consider a re-fetch on play error**: When Howler fails to load a `deezer` source track, the error could trigger a re-fetch attempt using the stored Deezer ID via the search proxy and update `externalUrl` in state. This would silently recover from stale CDN URLs without user action.
+
+---
+
 ## Date: 2026-04-24
 
 ## Branch Name: session-4c
