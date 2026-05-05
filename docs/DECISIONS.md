@@ -333,10 +333,3 @@ The original `handleDeleteTrack` in `App.tsx` called `DELETE /api/tracks/:id`, t
 
 **MobileMenu viewport clamping**
 The `⋮` context menu in `TrackList.tsx` was positioned with `right: window.innerWidth - pos.x`, anchoring its right edge to the tap position. On narrow viewports (any device under ~200px wider than the menu), tapping near the left edge of the screen caused the menu's left side to extend off-screen. Replaced with a `left`-based calculation clamped to `[8px, window.innerWidth - MENU_WIDTH - 8px]`. This keeps the menu fully on-screen on any viewport width down to 320px (the smallest common screen width across all device classes — not just phones, but also small-screen tablets and niche Android devices).
-
----
-
-## Post-Phase 7 — Bug Fixes
-
-**Deezer library tracks moved from localStorage to server-side (`deezer_tracks` table)**
-Deezer tracks added to the library via the search results "Add to Library" action were previously saved only to `localStorage` (`deezer-library-tracks` key). `localStorage` is per-browser, per-device — loading the app on a second device (or a different browser) returned an empty key, so those tracks simply never appeared there. The fix adds a `deezer_tracks` table in Turso with a composite primary key `(id, user_id)` (multiple users can save the same Deezer track), and two new authenticated endpoints: `POST /api/tracks/deezer` (upsert) and `DELETE /api/tracks/deezer/:id`. `GET /api/tracks` now fetches both uploaded and Deezer library tracks in a single `Promise.all` and merges them into the response. For authenticated users, the server is the source of truth; `localStorage` persistence is retained as a fallback for unauthenticated users only (no regression for that case).
