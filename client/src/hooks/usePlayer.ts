@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Howl } from 'howler'
 import { Track } from '../types'
 import { resolveDeezerUrl } from '../utils/deezer'
@@ -155,6 +155,16 @@ export function usePlayer(libraryTracks: Track[]) {
     const next = modes[(modes.indexOf(loopModeRef.current) + 1) % modes.length]
     loopModeRef.current = next
     setLoopMode(next)
+  }, [])
+
+  // Unload the Howl when the hook unmounts (e.g. on logout, when AuthGate
+  // swaps Player for LoginPage). Without this, the underlying audio element
+  // keeps playing in the background with no UI to stop it.
+  useEffect(() => {
+    return () => {
+      howlRef.current?.unload()
+      howlRef.current = null
+    }
   }, [])
 
   return {

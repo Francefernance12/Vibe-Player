@@ -4,6 +4,75 @@
 
 ## Date: 2026-05-05
 
+## Branch Name: fix/audio-stops-on-logout
+
+## What Changed
+
+One commit (`33f7446`), one file, ~11 LOC.
+
+`client/src/hooks/usePlayer.ts` — added a `useEffect` cleanup that unloads the Howl when the hook unmounts.
+
+```ts
+useEffect(() => {
+  return () => {
+    howlRef.current?.unload()
+    howlRef.current = null
+  }
+}, [])
+```
+
+### Root Cause
+
+When the user logged out, `AuthGate` (App.tsx:493-503) swapped `<Player>` for `<LoginPage>` because `user` became `null`. The Player component unmounted, but `usePlayer` had no cleanup, so the underlying `<audio>` element managed by Howler stayed alive and kept playing. There was no UI to stop it short of reloading the page.
+
+### Why this fix is correct
+
+- `howlRef` is the only mutable resource the hook owns. Howler's `unload()` is explicitly designed to tear down the audio element and release memory.
+- The empty deps array is correct — this runs once on mount, returns a cleanup that runs once on unmount. No re-run on every play.
+- The cleanup nulls `howlRef.current` afterwards so any late-arriving callbacks (theoretical) see a null ref instead of a half-unloaded Howl.
+
+### Coverage
+
+- Logout → Player unmounts → cleanup fires → audio stops. ✅
+- Tab switch (within Player, hook stays mounted) → no cleanup, audio continues as expected. ✅
+- Hot module reload in dev → cleanup fires, then remount → fresh state. ✅
+- Strict Mode double-mount → first mount's `howlRef.current` is null at cleanup time, no-op. ✅
+
+## Issues Spotted
+
+1. **Race window in `createAndPlay`**: `createAndPlay` is async (it awaits `resolveDeezerUrl`). If the user clicks play and then logs out in the brief window before the await resolves, the cleanup fires while no Howl exists, then a moment later `new Howl({...})` runs and `howlRef.current = howl` re-assigns. That orphan Howl will play with no UI control until it auto-ends. Tight window in practice (a few hundred ms tops), but real.
+
+2. **No test coverage**: Howler is hard to mock in jsdom (no `<audio>` support), and the existing `usePlayer` has no unit tests for this reason. The fix is small and self-contained, so the lack of tests is acceptable, but it leaves regressions invisible to CI.
+
+3. **The `howl.unload()` call in `createAndPlay` line 24-25 already does the same teardown** when a new track is selected. The new effect duplicates that logic on unmount — fine, just noting both paths exist.
+
+4. **`stop()` is exposed by the hook** but isn't called on logout. The cleanup approach is the right one (lifecycle-driven, can't be bypassed), but a defense-in-depth `player.stop()` call inside the logout handler in App.tsx would also stop audio without requiring the unmount path. Not necessary, just an option.
+
+## Suggestions
+
+1. **Close the async race** with a `mounted` flag inside `createAndPlay`:
+   ```ts
+   useEffect(() => {
+     mountedRef.current = true
+     return () => {
+       mountedRef.current = false
+       howlRef.current?.unload()
+       howlRef.current = null
+     }
+   }, [])
+   // inside createAndPlay, after the await:
+   if (!mountedRef.current) return
+   ```
+   Cheap addition that makes the cleanup bulletproof against async-during-unmount.
+
+2. **Consider a tiny smoke test** that mocks `Howl.unload` (a Vitest spy on the imported module) and asserts it's called when the hook unmounts. Would catch any future regression where the cleanup is removed by an over-zealous refactor.
+
+3. **Once the race fix lands, document the lifecycle of `howlRef` in a one-line comment** at the top of the hook — "single mutable Howl, owned by the hook, unloaded on track change AND on unmount" — so the next reader doesn't have to reconstruct it.
+
+---
+
+## Date: 2026-05-05
+
 ## Branch Name: fix/deezer-revert-and-redo
 
 ## What Changed
