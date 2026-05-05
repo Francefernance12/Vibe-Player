@@ -220,6 +220,8 @@ export async function getUserUploadedBytes(db: Client, userId: string): Promise<
 }
 
 // --- Deezer library tracks ---
+// preview_url is cached at save time only. It WILL expire — Deezer's signed CDN URLs
+// are short-lived. Always resolve a fresh URL via /api/deezer/track/:id at play time.
 
 export interface DbDeezerTrack {
   id: string

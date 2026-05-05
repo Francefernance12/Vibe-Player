@@ -147,19 +147,54 @@ function Player() {
   const player = usePlayer(tracks)
 
   useEffect(() => {
-    const deezerTracks = loadDeezerTracks()
-    fetch('/api/tracks')
-      .then(r => r.json())
-      .then((data: Track[]) => {
-        const merged = [...data]
-        for (const dt of deezerTracks) {
-          if (!merged.some(t => t.id === dt.id)) merged.push(dt)
+    let cancelled = false
+    ;(async () => {
+      // For authenticated users: one-shot migration of any pre-existing localStorage
+      // entries to the server, then wipe localStorage so it can never resurrect a
+      // deleted track. For unauthenticated users: localStorage is the only store.
+      if (user) {
+        const local = loadDeezerTracks()
+        if (local.length > 0) {
+          await Promise.allSettled(local.map(t => {
+            const [title, artist] = t.originalName.split(' — ')
+            return fetch('/api/tracks/deezer', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: t.id,
+                title: title ?? t.originalName,
+                artist: artist ?? 'Unknown',
+                albumArt: null,
+                previewUrl: t.externalUrl ?? null,
+                durationMs: 0,
+              }),
+            })
+          }))
+          localStorage.removeItem(DEEZER_TRACKS_KEY)
         }
-        setTracks(merged)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+      }
+      try {
+        const r = await fetch('/api/tracks')
+        const data = await r.json() as Track[]
+        if (cancelled) return
+        if (user) {
+          setTracks(data)
+        } else {
+          const local = loadDeezerTracks()
+          const merged = [...data]
+          for (const dt of local) {
+            if (!merged.some(t => t.id === dt.id)) merged.push(dt)
+          }
+          setTracks(merged)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [user])
 
   const visibleTracks = useMemo(
     () => filterAndSortTracks(tracks, filterText, sortOption),
@@ -172,6 +207,7 @@ function Player() {
   }, [refreshQuota])
 
   const handleSelect = useCallback((track: Track) => {
+    // usePlayer mints a fresh URL for Deezer tracks inside createAndPlay.
     player.play(track, visibleTracks)
   }, [player, visibleTracks])
 
@@ -195,13 +231,16 @@ function Player() {
 
   const handleAddDeezerToTracks = useCallback(async (result: SearchTrack) => {
     const track = makeSyntheticTrack(result)
+    let added = false
     setTracks(prev => {
       if (prev.some(t => t.id === track.id)) return prev
+      added = true
       return [...prev, track]
     })
+    if (!added) return
     if (user) {
       try {
-        await fetch('/api/tracks/deezer', {
+        const res = await fetch('/api/tracks/deezer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -213,14 +252,16 @@ function Player() {
             durationMs: result.durationMs,
           }),
         })
+        if (!res.ok) throw new Error(`status ${res.status}`)
       } catch (err) {
         console.error('Failed to save Deezer track to server:', err)
         setTracks(prev => prev.filter(t => t.id !== track.id))
       }
     } else {
       setTracks(prev => {
-        saveDeezerTracks(prev)
-        return prev
+        const next = prev
+        saveDeezerTracks(next)
+        return next
       })
     }
   }, [user])
@@ -241,9 +282,14 @@ function Player() {
       refreshQuota()
     } else if (track.source === 'deezer' && user) {
       try {
-        await fetch(`/api/tracks/deezer/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+        const res = await fetch(`/api/tracks/deezer/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+        if (!res.ok) {
+          console.error('Delete Deezer track failed:', res.status)
+          return
+        }
       } catch (err) {
-        console.error('Failed to delete Deezer track from server:', err)
+        console.error('Delete Deezer track request failed:', err)
+        return
       }
     }
     setTracks(prev => {

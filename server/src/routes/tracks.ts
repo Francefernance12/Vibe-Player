@@ -45,7 +45,9 @@ function tryGetUserId(req: Request): string | null {
   }
 }
 
-/** GET /api/tracks — samples always; user's uploaded + deezer library tracks appended when logged in */
+/** GET /api/tracks — samples always; user's uploaded + Deezer library tracks appended when logged in.
+ *  Deezer rows are returned WITHOUT externalUrl on purpose — the cached preview_url is volatile.
+ *  The client must call GET /api/deezer/track/:id to get a fresh preview URL at play time. */
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const samples = getSampleTracks();
@@ -70,12 +72,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     }));
     const deezerTracks: Track[] = deezerRows.map(t => ({
       id: t.id,
-      filename: t.preview_url ?? t.id,
+      filename: t.id,
       originalName: `${t.title} — ${t.artist}`,
       mimeType: 'audio/mpeg',
       size: 0,
       source: 'deezer' as const,
-      externalUrl: t.preview_url ?? undefined,
     }));
     res.json([...samples, ...uploads, ...deezerTracks]);
   } catch (err) {
@@ -83,7 +84,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-/** POST /api/tracks/deezer — save a Deezer track to the user's library */
+/** POST /api/tracks/deezer — save a Deezer track to the user's library. Idempotent (upsert). */
 router.post('/deezer', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   const { id, title, artist, albumArt, previewUrl, durationMs } = req.body as {
     id?: string; title?: string; artist?: string;
@@ -106,12 +107,11 @@ router.post('/deezer', authMiddleware, async (req: Request, res: Response, next:
     });
     const track: Track = {
       id,
-      filename: previewUrl ?? id,
+      filename: id,
       originalName: `${title} — ${artist}`,
       mimeType: 'audio/mpeg',
       size: 0,
       source: 'deezer',
-      externalUrl: previewUrl ?? undefined,
     };
     res.status(201).json(track);
   } catch (err) {
@@ -119,7 +119,7 @@ router.post('/deezer', authMiddleware, async (req: Request, res: Response, next:
   }
 });
 
-/** DELETE /api/tracks/deezer/:id — remove a Deezer track from the user's library */
+/** DELETE /api/tracks/deezer/:id — remove a Deezer track from the user's library. Idempotent. */
 router.delete('/deezer/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params as { id: string };
   try {

@@ -127,7 +127,7 @@ describe('POST /api/tracks/deezer', () => {
     expect(res.status).toBe(400);
   });
 
-  it('saves and returns 201 with track shape', async () => {
+  it('saves and returns 201 with deezer-shaped Track (no externalUrl in response)', async () => {
     const res = await request(app)
       .post('/api/tracks/deezer')
       .set('Cookie', authCookie)
@@ -137,11 +137,13 @@ describe('POST /api/tracks/deezer', () => {
       id: 'dz-001',
       originalName: 'Test Song — Test Artist',
       source: 'deezer',
-      externalUrl: DEEZER_TRACK.previewUrl,
     });
+    // externalUrl is intentionally omitted — preview URLs expire and must be
+    // resolved fresh via /api/deezer/track/:id at play time.
+    expect(res.body.externalUrl).toBeUndefined();
   });
 
-  it('GET /api/tracks includes the saved Deezer track', async () => {
+  it('GET /api/tracks includes the saved Deezer track without externalUrl', async () => {
     const res = await request(app)
       .get('/api/tracks')
       .set('Cookie', authCookie);
@@ -149,6 +151,7 @@ describe('POST /api/tracks/deezer', () => {
     const deezerTracks = res.body.filter((t: { source: string }) => t.source === 'deezer');
     expect(deezerTracks.length).toBeGreaterThan(0);
     expect(deezerTracks[0]).toMatchObject({ id: 'dz-001', source: 'deezer' });
+    expect(deezerTracks[0].externalUrl).toBeUndefined();
   });
 });
 
@@ -165,7 +168,7 @@ describe('DELETE /api/tracks/deezer/:id', () => {
     expect(res.status).toBe(204);
   });
 
-  it('GET /api/tracks no longer includes deleted Deezer track', async () => {
+  it('GET /api/tracks no longer includes the deleted Deezer track', async () => {
     const res = await request(app)
       .get('/api/tracks')
       .set('Cookie', authCookie);
