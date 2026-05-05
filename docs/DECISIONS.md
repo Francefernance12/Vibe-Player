@@ -333,3 +333,20 @@ The original `handleDeleteTrack` in `App.tsx` called `DELETE /api/tracks/:id`, t
 
 **MobileMenu viewport clamping**
 The `⋮` context menu in `TrackList.tsx` was positioned with `right: window.innerWidth - pos.x`, anchoring its right edge to the tap position. On narrow viewports (any device under ~200px wider than the menu), tapping near the left edge of the screen caused the menu's left side to extend off-screen. Replaced with a `left`-based calculation clamped to `[8px, window.innerWidth - MENU_WIDTH - 8px]`. This keeps the menu fully on-screen on any viewport width down to 320px (the smallest common screen width across all device classes — not just phones, but also small-screen tablets and niche Android devices).
+
+---
+
+## Post-Phase 7 — Deezer Cross-Device Library (corrected re-implementation)
+
+**Background — first attempt (PR #26) was broken and reverted.** The first cut at "Deezer tracks should sync across devices" stored the search-time `previewUrl` directly in a new `deezer_tracks` table and used that URL for playback. Two failure modes emerged in production:
+
+1. **Stale URLs** — Deezer's public API returns signed CDN URLs (`cdns-preview-N.dzcdn.net/stream/c-{token}.mp3`) whose tokens expire within hours to a few days. The URL stored at "add to library" time was already invalid by the time the user opened the app on a second device, so Howler silently failed to load it. This also caused the same-device "sometimes won't play" symptom for older tracks.
+2. **localStorage zombies** — the load effect always merged `localStorage`'s old Deezer tracks into state, even for authenticated users, while delete only wiped localStorage in the unauthenticated branch. Authenticated users who had legacy localStorage entries saw deleted tracks reappear on every refresh.
+
+**Corrected design:**
+- The `deezer_tracks` table still stores the Deezer track ID + display metadata (title, artist, album art, duration). `preview_url` is kept only as an opportunistic cache; clients never trust it for playback.
+- `GET /api/tracks` returns Deezer rows **without** `externalUrl`, so there is no stale URL for Howler to try.
+- A new endpoint `GET /api/deezer/track/:id` proxies `https://api.deezer.com/track/{id}` and returns a fresh `previewUrl`. This is called immediately before each play (`resolveDeezerUrl` in `App.tsx`).
+- `App.tsx`'s load effect now branches on auth state: authenticated users hit the server only, and any pre-existing localStorage entries are migrated to the server once and then `localStorage.removeItem`-ed so they cannot resurrect deleted tracks. Unauthenticated users still get the localStorage-only path (no regression).
+
+**Why proxy on the server, not call Deezer directly from the browser?** The Deezer public API returns CORS headers that work, but routing through the server (a) reuses the existing pattern for `/api/search`, (b) keeps the Deezer dependency on the server side where it can be swapped or cached uniformly, and (c) avoids leaking direct Deezer API URLs into client code.

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { Howl } from 'howler'
 import { Track } from '../types'
+import { resolveDeezerUrl } from '../utils/deezer'
 
 export function usePlayer(libraryTracks: Track[]) {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
@@ -19,13 +20,16 @@ export function usePlayer(libraryTracks: Track[]) {
   const playInternalRef = useRef<((track: Track) => void) | null>(null)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const createAndPlay = useCallback((track: Track) => {
+  const createAndPlay = useCallback(async (track: Track) => {
     howlRef.current?.unload()
     howlRef.current = null
 
-    const src = track.externalUrl
-      ? [track.externalUrl]
-      : [`/api/tracks/${encodeURIComponent(track.filename)}/stream`]
+    // Deezer preview URLs expire — always mint a fresh one immediately before play.
+    const playable = await resolveDeezerUrl(track)
+
+    const src = playable.externalUrl
+      ? [playable.externalUrl]
+      : [`/api/tracks/${encodeURIComponent(playable.filename)}/stream`]
 
     const howl = new Howl({
       src,

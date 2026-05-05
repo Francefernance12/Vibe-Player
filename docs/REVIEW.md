@@ -2,6 +2,59 @@
 
 ---
 
+## Date: 2026-05-05
+
+## Branch Name: fix/deezer-revert-and-redo
+
+## What Changed
+
+This branch is a postmortem + correction of PR #26 (`fix/deezer-library-cross-device`). Two reverts followed by four forward commits.
+
+### Reverts
+- `Revert "docs: opencode review for fix/deezer-library-cross-device"` — undoes the review entry from the failed PR.
+- `Revert "fix: persist Deezer library tracks server-side for cross-device sync"` — undoes the broken implementation.
+
+### Forward changes
+- `server/db/migrations/006_create_deezer_tracks.sql` — re-introduced. Same schema as PR #26: composite PK `(id, user_id)`, columns for title/artist/album_art/preview_url/duration_ms/created_at.
+- `server/db/index.ts` — `saveDeezerTrack`, `getDeezerTracksByUser`, `deleteDeezerTrack`. Comment added clarifying `preview_url` is a non-authoritative cache.
+- `server/src/routes/tracks.ts` — `GET /api/tracks` now returns Deezer rows **without** `externalUrl` (this is the key correction). `POST /api/tracks/deezer` and `DELETE /api/tracks/deezer/:id` re-added.
+- `server/src/routes/deezer.ts` — new file. `GET /api/deezer/track/:id` proxies `https://api.deezer.com/track/{id}` and returns a freshly-minted `previewUrl`. Mounted under `/api/deezer` in `app.ts`.
+- `client/src/App.tsx`:
+  - New `resolveDeezerUrl(track)` helper — fetches a fresh URL from `/api/deezer/track/:id` and patches `externalUrl` + `filename` before play.
+  - Load effect rewritten: authenticated users get a one-shot localStorage → server migration, then localStorage is wiped. Unauthenticated path unchanged.
+  - `handleSelect`, `handlePlaylistPlay`, and the chat `play` action all call `resolveDeezerUrl` before invoking `player.play`.
+  - `handleAddDeezerToTracks` POSTs to `/api/tracks/deezer` for authenticated users; rolls back local state on failure.
+  - `handleDeleteTrack` calls `DELETE /api/tracks/deezer/:id` for authenticated Deezer deletes; localStorage is touched only in the unauthenticated path.
+- `server/src/__tests__/tracks.test.ts` — 7 new tests for the Deezer library endpoints. Notably asserts `externalUrl` is **absent** from `GET /api/tracks` Deezer rows.
+- `server/src/__tests__/deezer.test.ts` (new) — 5 tests for `/api/deezer/track/:id`: 400 on non-numeric id, 200 with `previewUrl`, 502 on Deezer 5xx, 404 on missing preview, 404 on Deezer error payload.
+- `docs/DECISIONS.md`, `docs/PLANCHECKLIST.md` — entries explaining why PR #26 failed and what changed in this round.
+
+Test counts after this branch: 66 server (was 54 on revert, +12 new) + 49 client = 115 total.
+
+## Why PR #26 Failed (Postmortem)
+
+**Two independent failure modes, plus one regression introduced by the fix itself.**
+
+1. **Deezer preview URLs expire.** PR #26 snapshotted `previewUrl` at "add to library" time and served it from `GET /api/tracks` as `externalUrl`. Deezer's CDN URLs are short-lived signed tokens (hours to a few days). Any device that opened the app days later — or even the original device after enough time — got a 403/expired URL, and Howler silently failed.
+2. **localStorage zombies on authenticated users.** PR #26's load effect always merged `loadDeezerTracks()` into state, while `handleDeleteTrack` only wrote to localStorage on the unauthenticated branch. Authenticated users with old localStorage entries (from before the fix) saw deleted tracks reappear on every refresh.
+3. **Cause of (1):** the design treated the cached preview URL as authoritative for playback. The correct treatment is to mint a fresh URL at play time, since Deezer already provides `https://api.deezer.com/track/{id}` for that purpose.
+
+## Issues Spotted in This Round
+
+1. **One-shot migration is best-effort.** The localStorage→server migration runs `Promise.allSettled` and proceeds even if some POSTs fail. Worst case: a partial migration leaves orphans on the server, but localStorage is still cleared. Acceptable because (a) the user can re-add via search, (b) duplicates are deduped server-side via composite PK upsert.
+2. **`resolveDeezerUrl` is silent on failure** — falls back to whatever `externalUrl` (or none) is on the track. If the proxy returns 502 or 404, the user gets the same "won't play" UX. A toast on Howler error would close the loop, but that's outside this branch's scope.
+3. **`handlePlaylistPlay` queue is built without resolving URLs for queued items.** Only the immediately-played track gets a fresh URL. Auto-advance (`onend` in `usePlayer`) will then try to play stale `externalUrl` values from the rest of the queue. To fix properly, URL resolution should move into `usePlayer.ts` itself, called inside `createAndPlay` when `track.source === 'deezer'`.
+4. **Deezer rate limiting.** The proxy adds one round-trip per play. Deezer's public API has no published rate limit but is best-effort. For a single user this is fine; if many users hit the same endpoint via the same Vercel function instance, look out for sporadic 429s.
+
+## Suggestions
+
+1. **Move `resolveDeezerUrl` into `usePlayer`** so the auto-advance path (and `next`/`prev`) gets fresh URLs too. The cleanest place is inside `createAndPlay` before constructing the `Howl`.
+2. **Add a Howler `onloaderror` handler** that retries via `resolveDeezerUrl` once. This recovers from any URL that became stale between resolve and play.
+3. **Cache the resolved URL in memory for ~10 minutes** keyed by Deezer track ID — avoids re-fetching when the user replays the same track repeatedly within a session.
+4. **Add a test for `resolveDeezerUrl`** in the client test suite (mocked fetch). Currently only the server endpoint has coverage.
+
+---
+
 ## Date: 2026-04-24
 
 ## Branch Name: session-4c

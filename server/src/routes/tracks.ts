@@ -13,6 +13,9 @@ import {
   getUploadedTrackById,
   deleteUploadedTrack,
   getUserUploadedBytes,
+  saveDeezerTrack,
+  getDeezerTracksByUser,
+  deleteDeezerTrack,
 } from '../../db';
 import { authMiddleware, AuthPayload, getJwtSecret } from '../middleware/auth';
 import { Track } from '../../../shared/types';
@@ -42,7 +45,9 @@ function tryGetUserId(req: Request): string | null {
   }
 }
 
-/** GET /api/tracks — samples always; user's uploaded tracks appended when logged in */
+/** GET /api/tracks — samples always; user's uploaded + Deezer library tracks appended when logged in.
+ *  Deezer rows are returned WITHOUT externalUrl on purpose — the cached preview_url is volatile.
+ *  The client must call GET /api/deezer/track/:id to get a fresh preview URL at play time. */
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const samples = getSampleTracks();
@@ -52,8 +57,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       return;
     }
     const db = getDb();
-    const rows = await getUploadedTracksByUser(db, userId);
-    const uploads: Track[] = rows.map(t => ({
+    const [uploadRows, deezerRows] = await Promise.all([
+      getUploadedTracksByUser(db, userId),
+      getDeezerTracksByUser(db, userId),
+    ]);
+    const uploads: Track[] = uploadRows.map(t => ({
       id: t.id,
       filename: t.filename,
       originalName: t.original_name,
@@ -62,7 +70,62 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       source: 'upload' as const,
       externalUrl: t.blob_url,
     }));
-    res.json([...samples, ...uploads]);
+    const deezerTracks: Track[] = deezerRows.map(t => ({
+      id: t.id,
+      filename: t.id,
+      originalName: `${t.title} — ${t.artist}`,
+      mimeType: 'audio/mpeg',
+      size: 0,
+      source: 'deezer' as const,
+    }));
+    res.json([...samples, ...uploads, ...deezerTracks]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** POST /api/tracks/deezer — save a Deezer track to the user's library. Idempotent (upsert). */
+router.post('/deezer', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  const { id, title, artist, albumArt, previewUrl, durationMs } = req.body as {
+    id?: string; title?: string; artist?: string;
+    albumArt?: string | null; previewUrl?: string | null; durationMs?: number;
+  };
+  if (!id || !title || !artist) {
+    res.status(400).json({ error: 'id, title, and artist are required' });
+    return;
+  }
+  try {
+    const db = getDb();
+    await saveDeezerTrack(db, {
+      id,
+      user_id: req.user!.userId,
+      title,
+      artist,
+      album_art: albumArt ?? null,
+      preview_url: previewUrl ?? null,
+      duration_ms: durationMs ?? 0,
+    });
+    const track: Track = {
+      id,
+      filename: id,
+      originalName: `${title} — ${artist}`,
+      mimeType: 'audio/mpeg',
+      size: 0,
+      source: 'deezer',
+    };
+    res.status(201).json(track);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** DELETE /api/tracks/deezer/:id — remove a Deezer track from the user's library. Idempotent. */
+router.delete('/deezer/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params as { id: string };
+  try {
+    const db = getDb();
+    await deleteDeezerTrack(db, id, req.user!.userId);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

@@ -104,6 +104,79 @@ describe('GET /api/tracks', () => {
   });
 });
 
+const DEEZER_TRACK = {
+  id: 'dz-001',
+  title: 'Test Song',
+  artist: 'Test Artist',
+  albumArt: null,
+  previewUrl: 'https://cdns-preview.dzcdn.net/stream/test.mp3',
+  durationMs: 30000,
+};
+
+describe('POST /api/tracks/deezer', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(app).post('/api/tracks/deezer').send(DEEZER_TRACK);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when required fields are missing', async () => {
+    const res = await request(app)
+      .post('/api/tracks/deezer')
+      .set('Cookie', authCookie)
+      .send({ id: 'dz-001' });
+    expect(res.status).toBe(400);
+  });
+
+  it('saves and returns 201 with deezer-shaped Track (no externalUrl in response)', async () => {
+    const res = await request(app)
+      .post('/api/tracks/deezer')
+      .set('Cookie', authCookie)
+      .send(DEEZER_TRACK);
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      id: 'dz-001',
+      originalName: 'Test Song — Test Artist',
+      source: 'deezer',
+    });
+    // externalUrl is intentionally omitted — preview URLs expire and must be
+    // resolved fresh via /api/deezer/track/:id at play time.
+    expect(res.body.externalUrl).toBeUndefined();
+  });
+
+  it('GET /api/tracks includes the saved Deezer track without externalUrl', async () => {
+    const res = await request(app)
+      .get('/api/tracks')
+      .set('Cookie', authCookie);
+    expect(res.status).toBe(200);
+    const deezerTracks = res.body.filter((t: { source: string }) => t.source === 'deezer');
+    expect(deezerTracks.length).toBeGreaterThan(0);
+    expect(deezerTracks[0]).toMatchObject({ id: 'dz-001', source: 'deezer' });
+    expect(deezerTracks[0].externalUrl).toBeUndefined();
+  });
+});
+
+describe('DELETE /api/tracks/deezer/:id', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(app).delete('/api/tracks/deezer/dz-001');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 204 and removes the track', async () => {
+    const res = await request(app)
+      .delete('/api/tracks/deezer/dz-001')
+      .set('Cookie', authCookie);
+    expect(res.status).toBe(204);
+  });
+
+  it('GET /api/tracks no longer includes the deleted Deezer track', async () => {
+    const res = await request(app)
+      .get('/api/tracks')
+      .set('Cookie', authCookie);
+    const deezerTracks = res.body.filter((t: { id: string }) => t.id === 'dz-001');
+    expect(deezerTracks.length).toBe(0);
+  });
+});
+
 describe('DELETE /api/tracks/:id', () => {
   let uploadedId: string;
 
