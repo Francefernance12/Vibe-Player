@@ -1199,3 +1199,83 @@ The following minor enhancements are suggested to ensure continued accuracy and 
 ### Conclusion
 
 The documentation is a significant asset to the project. The suggested changes are minor but will improve the overall consistency and maintainability of the documentation. No other discrepancies were found.
+
+---
+
+## Date: 2026-05-09
+
+## Branch Name: feat/chat-assistant-polish
+
+## What Changed
+
+A targeted polish pass on the AI chat assistant. Three concerns addressed in one commit (8f2bf50): reliability (anchor "this song" to a real track ID), capability (expand action vocabulary), and UX feedback (surface action outcomes).
+
+### Server-side
+- `server/src/routes/chat.ts` — payload schema now `{ messages, currentTrack: { id, name } | null, isPlaying, library, playlists }`. `buildSystemPrompt` rewritten to take a single options object.
+- The currently-playing track's `id` is embedded in the system prompt with an explicit instruction: when the user says "this song" / "the current one" / any pronoun about playback, use that id directly. Do not name-match against the library.
+- When nothing is playing, the prompt instructs the model to ask for clarification rather than guess.
+- New documented actions: `add_to_favorites`, `pause`, `resume`, `next`, `prev`. Existing `play`, `search`, `add_to_playlist` retained.
+- Anti-hallucination rule appended: features outside the action list must be declined in plain text, never via a fabricated `<action>` tag.
+
+### Client-side
+- `client/src/hooks/useChat.ts` — sends `currentTrack` and `isPlaying` in the request body. Hook signature updated. The existing `onAction → return-string → kind:'action' message` path was already wired; no changes there.
+- `client/src/components/ChatWindow.tsx` — prop renamed `trackName` → `currentTrack`, and a new `isPlaying` prop added. Header continues to render the name.
+- `client/src/App.tsx` — `handleChatAction` switch covers all eight action types; every branch returns a feedback string. New `chatCurrentTrack` memo passes the trimmed `{ id, name }` to the chat panel.
+
+### Tests
+- `server/src/__tests__/chat.test.ts` — three new assertions: (1) system prompt embeds `id: <id>` and the "use the id" instruction when `currentTrack` is set; (2) clarification path when `currentTrack` is null; (3) all eight action types and the anti-hallucination clause are present.
+- `client/src/__tests__/useChat.test.ts` — new file, six tests covering parser for new action types, system-note appending, and request-body shape.
+- `client/src/__tests__/ChatWindow.test.tsx` — extended for header rendering of `currentTrack.name` and end-to-end action-note rendering after a mocked reply.
+- 126 tests pass total (69 server + 57 client). Both production builds green (client `tsc -b && vite build` 1.45s, gzip 106.15 KB; server `tsc` clean).
+
+### Bundled doc consistency from prior session
+This branch also folds in earlier doc updates that had been left uncommitted on `main`:
+- `docs/ARCHITECTURE.md`, `docs/DATABASE_SCHEMA.md`, `docs/CODEBASE_GUIDE.md` — aligned to the post-revert Deezer cross-device design.
+- `docs/DECISIONS.md`, `docs/PLANCHECKLIST.md` — chat-polish entries.
+- `.gitignore` — `docs/private/` (the user's interview-prep folder).
+
+## Issues Spotted
+
+### 1. `add_to_favorites` lookup is name-based with no fallback
+`App.tsx`'s `add_to_favorites` branch finds the Favorites playlist via `playlists.find(p => p.name.toLowerCase() === 'favorites')`. If the user renames Favorites, the action returns "You don't have a Favorites playlist yet."
+- **Severity**: low. Same fragility documented in `docs/private/06_WEAKNESSES_AND_TRADEOFFS.md`. Not a regression from this PR.
+- **Note**: `add_to_playlist` has a `defaultPlaylistId` fallback. `add_to_favorites` does not. Worth aligning so a renamed Favorites still receives the track instead of being refused.
+
+### 2. Playback-state wording conflates "paused" with "stopped"
+The system prompt emits `Playback state: paused` whenever `isPlaying` is false, even when nothing has ever played. Cosmetic — the model still picks `play` correctly when a trackId is provided.
+- **Severity**: very low. Suggested fix: `Playback state: ${currentTrack ? (isPlaying ? 'playing' : 'paused') : 'stopped'}`.
+
+### 3. Unreachable fallback in `chatCurrentTrack` memo
+The expression `nowPlayingName ?? player.currentTrack.id` is inside a `player.currentTrack ? ... : null` ternary, and `nowPlayingName` derives directly from `player.currentTrack.originalName`. Inside the truthy branch `nowPlayingName` is always a string — the `?? player.currentTrack.id` fallback is unreachable. Trim it.
+
+### 4. Failure notes render identically to success notes
+`ChatWindow` renders all `kind: 'action'` messages with the same `text-zinc-600 italic` style. A user who has just been told "Couldn't find that track" sees the same visual treatment as "Added to Favorites."
+- **Suggested**: Have the dispatcher return `{ ok: boolean; message: string }` instead of a bare string; render `ok: false` notes in `text-orange-400/70` or similar.
+
+### 5. `chat.test.ts` rate-limit budget is at the wall
+Three new prompt-content tests now run against a fresh `promptCookie` user. That user has a 5-request budget; the three tests fit. Adding a fourth prompt-content test against the same user will start triggering 429s nondeterministically based on test ordering.
+- **Suggested**: when adding more, register a fresh user per test.
+
+### 6. Action dispatch has no rollback on backend failure
+If `add_to_favorites` fires `addLocal(track, fav.id)` and the server sync that follows fails, the user sees "Added to Favorites" but the row never persists. Same shape as the documented optimistic-update gap. Not a regression.
+
+## Suggestions
+
+### High value, small effort
+- Add a `defaultPlaylistId` fallback to the `add_to_favorites` branch (Issue #1).
+- Distinguish failure-note styling from success-note styling (Issue #4).
+- Tighten the playback-state line to include "stopped" (Issue #2).
+- Trim the unreachable `?? player.currentTrack.id` fallback (Issue #3).
+
+### Worth deferring
+- Migrate Favorites identification from name-based to a `role TEXT` column in `playlists`. Documented and out of scope for this polish; a one-evening task on its own.
+- Streaming response mode — Phase 8 candidate; current 400-token cap keeps latency tolerable.
+- Native Groq tool calling — would replace the regex parser entirely and remove the "malformed JSON" failure mode. Cleanest architectural improvement available, but a multi-session change.
+
+### Test coverage gaps worth filling later
+- No client-side dispatch test for `pause` / `resume` / `next` / `prev` — parser tests cover extraction, but no test asserts that App's handler actually calls `player.pause()` etc. Requires a heavier test harness because App pulls in many contexts.
+- No server-side test for rate-limiter cold-start reset (already documented as accepted limitation).
+
+## Conclusion
+
+The change is focused, the tests are commensurate, and the system-prompt anchoring should resolve the user's "wrong song" complaint cleanly — the model no longer has to guess which track "this" refers to. The five flagged issues are all small (style, dead code, edge-case fallbacks) and none of them block shipping. Recommended: merge as-is and address Issues #1–#4 in a small follow-up patch.

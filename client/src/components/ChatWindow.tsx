@@ -14,14 +14,16 @@ function renderMarkdown(text: string) {
 
 interface LibraryTrack { id: string; name: string }
 interface PlaylistSummary { id: string; name: string }
+interface CurrentTrack { id: string; name: string }
 
 interface Props {
   isOpen: boolean
   onClose: () => void
-  trackName?: string | null
+  currentTrack?: CurrentTrack | null
+  isPlaying?: boolean
   library?: LibraryTrack[]
   playlists?: PlaylistSummary[]
-  onAction?: (action: ChatAction) => void
+  onAction?: (action: ChatAction) => string | void
 }
 
 const SUGGESTIONS = [
@@ -31,8 +33,8 @@ const SUGGESTIONS = [
   'Add this track to my Favorites',
 ]
 
-export const ChatWindow = memo(function ChatWindow({ isOpen, onClose, trackName, library, playlists, onAction }: Props) {
-  const { messages, isLoading, sendMessage } = useChat({ trackName, library, playlists, onAction })
+export const ChatWindow = memo(function ChatWindow({ isOpen, onClose, currentTrack, isPlaying, library, playlists, onAction }: Props) {
+  const { messages, isLoading, sendMessage } = useChat({ currentTrack, isPlaying, library, playlists, onAction })
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -67,8 +69,8 @@ export const ChatWindow = memo(function ChatWindow({ isOpen, onClose, trackName,
             <span className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0" />
             <span className="font-display font-bold text-sm text-zinc-100">Vibe Assistant</span>
           </div>
-          {trackName && (
-            <p className="text-[11px] text-zinc-600 truncate mt-0.5 pl-3.5">{trackName}</p>
+          {currentTrack && (
+            <p className="text-[11px] text-zinc-600 truncate mt-0.5 pl-3.5">{currentTrack.name}</p>
           )}
         </div>
         <button onClick={onClose} aria-label="Close" className="text-zinc-600 hover:text-zinc-300 transition-colors mt-0.5 flex-shrink-0">

@@ -105,8 +105,10 @@ This is where the Express app is assembled. It registers:
 ```
 src/routes/
   health.ts     ← GET /api/health
-  tracks.ts     ← GET /tracks, POST /upload, DELETE /:id, GET /:filename/stream
+  tracks.ts     ← GET /tracks, POST /upload, DELETE /:id, GET /:filename/stream,
+                  POST /deezer (save), DELETE /deezer/:id (remove from library)
   search.ts     ← GET /search?q= (Deezer proxy)
+  deezer.ts     ← GET /track/:id (fresh preview URL proxy — Deezer URLs expire)
   auth.ts       ← POST /register, /login, /logout, GET /me
   playlists.ts  ← CRUD + PUT /:id/tracks
   quota.ts      ← GET /api/user/quota
@@ -168,6 +170,7 @@ SQL files in `server/db/migrations/` are numbered. The runner (`server/db/migrat
 | `playlists` | Named playlists per user |
 | `playlist_tracks` | Tracks within a playlist (JSON blob per row) |
 | `uploaded_tracks` | Metadata for user-uploaded files (blob URL stored here) |
+| `deezer_tracks` | A user's saved Deezer search tracks. ID + display metadata only — playback URL is re-fetched fresh via `/api/deezer/track/:id` |
 
 See [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) for full column definitions and relationships.
 
@@ -283,6 +286,35 @@ When a track ends:
 - `loopMode === 'queue'` → advance; wrap from last to first
 - `loopMode === 'none'` → advance; stop at end
 
+### Deezer URL resolution at play time
+
+Deezer's preview MP3 URLs are signed and expire (hours to days). A URL stored at "add to library" time will silently fail to load on a second device or after the token expires. To handle this, `usePlayer.createAndPlay` is `async` and calls `resolveDeezerUrl` (`client/src/utils/deezer.ts`) before constructing the Howl.
+
+```typescript
+const playable = await resolveDeezerUrl(track)   // calls /api/deezer/track/:id
+const src = playable.externalUrl
+  ? [playable.externalUrl]
+  : [`/api/tracks/${encodeURIComponent(playable.filename)}/stream`]
+const howl = new Howl({ src, html5: true, ... })
+```
+
+`setCurrentTrack(track)` is called with the **original** track (not `playable`) so the queue lookup invariant — `findIndex(t => t.filename === current.filename)` — keeps working against the queue, which uses original filenames.
+
+### Cleanup on unmount (don't skip this)
+
+`Howl` instances are not garbage-collected when the React component using them unmounts. The underlying `<audio>` element keeps playing with no UI to control it. `usePlayer` includes a single cleanup effect:
+
+```typescript
+useEffect(() => {
+  return () => {
+    howlRef.current?.unload()
+    howlRef.current = null
+  }
+}, [])
+```
+
+This runs on every unmount — including logout (`AuthGate` unmounts the player) and any future routing changes that might tear down the player tree.
+
 ---
 
 ## 8. Authentication Flow
@@ -341,22 +373,24 @@ When a track is deleted from the library (`handleDeleteTrack` in `App.tsx`), `Pl
 ### How it works
 
 1. User types a message and hits Enter
-2. `useChat` appends the message to history and calls `POST /api/chat` with the last 20 messages
-3. The server forwards the conversation to Groq with a system prompt that instructs the model to include structured action tags in its response (e.g. `<action>{"type":"play","trackName":"Bohemian Rhapsody"}</action>`)
-4. `extractAction(text)` in `useChat.ts` parses any action tag from the response
-5. `App.tsx` receives the action via `onAction` callback and dispatches it to the player
+2. `useChat` appends the message to history and POSTs `/api/chat` with the last 20 messages plus context: `currentTrack: { id, name } | null`, `isPlaying`, the trimmed library, and playlist summaries
+3. The server's `buildSystemPrompt` embeds the currently-playing track ID and instructs the model to use that ID directly when the user says "this song" / "the current one" — no name-matching against the library
+4. The server forwards the conversation to Groq (`llama-3.3-70b-versatile`) with the system prompt and the last 20 messages
+5. `extractAction(text)` in `useChat.ts` parses any `<action>{...}</action>` tag from the reply (strips backticks and code fences first)
+6. `App.tsx`'s `handleChatAction` callback dispatches the action and returns a feedback string; `useChat` appends that string as a `kind: 'action'` message, which `ChatWindow` renders as a small italic centered note
 
 ### Supported chat actions
 
-| Action type | What happens |
-|---|---|
-| `play` | Searches the library for a matching track name and plays it |
-| `search` | Calls `GET /api/search?q=` and displays results |
-| `search_and_play` | Searches Deezer and plays the first result |
-| `add_to_playlist` | Adds the current track to a named playlist |
-| `pause` / `resume` | Calls `player.pause()` / `player.resume()` |
-| `skip` / `prev` | Calls `player.next()` / `player.prev()` |
-| `set_volume` | Calls `player.setVolume(level)` |
+| Action type | Payload | What happens |
+|---|---|---|
+| `play` | `trackId` | Plays the matching library track |
+| `search` | `query` | Calls `GET /api/search?q=` and populates the search results panel |
+| `add_to_playlist` | `trackId`, `playlistId` | Adds a track to a specific playlist (defaults to Favorites if `playlistId` is omitted) |
+| `add_to_favorites` | `trackId` | Sugar for "add to Favorites" — looks up the Favorites playlist by name |
+| `pause` / `resume` | — | `player.pause()` / `player.resume()` |
+| `next` / `prev` | — | `player.next()` / `player.prev()` |
+
+The server's system prompt also includes an explicit anti-hallucination rule: the model is told to reply in plain text (no fake action tag) for any feature outside this list — create-a-playlist, change-volume, edit-metadata, etc.
 
 ### Rate limiting
 
@@ -443,3 +477,12 @@ Vercel env vars must be added in the Vercel dashboard under Project → Settings
 
 **"Tests are passing but the app crashes on Vercel"**
 Check the Vercel build logs for TypeScript errors. The most common cause is a type mismatch between `shared/types.ts` and the server or client code. `client/src/types.ts` is a re-export barrel — all type definitions belong in `shared/types.ts`.
+
+**"A Deezer track plays once, then on another device it doesn't"**
+Deezer's preview URLs expire. Don't store one as the playback source. The library row has the Deezer ID; resolve a fresh URL with `GET /api/deezer/track/:id` immediately before handing the track to Howler. `resolveDeezerUrl` in `client/src/utils/deezer.ts` already does this — `usePlayer.createAndPlay` calls it on every play.
+
+**"Audio keeps playing after I log out"**
+You forgot the unload-on-unmount effect in `usePlayer`. Howl instances are not GC'd by React on unmount — they leak the underlying `<audio>` element. The fix is a `useEffect(() => () => howlRef.current?.unload(), [])`. If you find yourself adding `useEffect` cleanups elsewhere that touch playback resources, follow the same pattern.
+
+**"A Deezer track I deleted keeps coming back"**
+This was the localStorage zombie bug. For authenticated users, `localStorage.deezer-library-tracks` must not be merged into state on load — the server is authoritative. The current load effect in `App.tsx` migrates any legacy local entries to the server once and then clears localStorage, so the resurrection vector is gone. If you add a new client-side Deezer cache, do not merge it into authenticated state.

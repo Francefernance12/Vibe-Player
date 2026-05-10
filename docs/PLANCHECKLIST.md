@@ -346,3 +346,17 @@ This file is the first thing any agent or collaborator should read to understand
 | 7B | 2026-04-25 | `db.batch` already atomic — no code change needed; rate limiter resets on cold start (documented) | ✅ Documented |
 | 7C | 2026-04-25 | `client/src/types.ts` divergence resolved; dead exports cleaned; encoding fix for non-ASCII filenames; data consistency bug in `handleDeleteTrack` | ✅ Fixed |
 | Post-7 | 2026-05-05 | Deezer library: PR #26 stored stale preview URLs and let localStorage resurrect deleted tracks | ✅ Reverted + redone: `/api/deezer/track/:id` resolves fresh URL at play time; localStorage migrated and cleared for authed users |
+| Post-7 | 2026-05-09 | Chat assistant occasionally favorited the wrong track ("this song" was name-matched, not ID-anchored); narrow action vocab; silent dispatch failures | ✅ Fixed: chat payload carries `currentTrack: {id, name}` + `isPlaying`; system prompt instructs model to use the id for pronouns; new actions `add_to_favorites`, `pause`, `resume`, `next`, `prev`; every dispatch branch returns a feedback string rendered as a system note in `ChatWindow` |
+
+---
+
+## Post-7 — Chat assistant polish (2026-05-09)
+
+- ✅ `server/src/routes/chat.ts` — `buildSystemPrompt` accepts `{ currentTrack, isPlaying, library, playlists }`; embeds `id: <id>` + the "use the id for 'this song'" instruction; documents `add_to_favorites`, `pause`, `resume`, `next`, `prev`; adds an explicit anti-hallucination rule
+- ✅ `client/src/hooks/useChat.ts` — request body sends `currentTrack` + `isPlaying`
+- ✅ `client/src/components/ChatWindow.tsx` — prop `trackName` replaced with `currentTrack: { id, name } | null` and `isPlaying: boolean`; header still shows the name
+- ✅ `client/src/App.tsx` — `handleChatAction` switch covers all eight action types, every branch returns a feedback string; `chatCurrentTrack` memo passes the trimmed `{ id, name }` to `ChatWindow`
+- ✅ `server/src/__tests__/chat.test.ts` — three new assertions over system-prompt content (currentTrack id present, clarification on null, all action types + anti-hallucination clause)
+- ✅ `client/src/__tests__/useChat.test.ts` — new file, six tests covering parser + system-note appending + payload shape
+- ✅ `client/src/__tests__/ChatWindow.test.tsx` — extended for header rendering of `currentTrack.name` and end-to-end action-note rendering after a mocked reply
+- ✅ 57 client + 69 server = 126 tests pass

@@ -13,9 +13,11 @@ export interface ChatAction {
 
 interface LibraryTrack { id: string; name: string }
 interface PlaylistSummary { id: string; name: string }
+interface CurrentTrack { id: string; name: string }
 
 interface UseChatOptions {
-  trackName?: string | null
+  currentTrack?: CurrentTrack | null
+  isPlaying?: boolean
   library?: LibraryTrack[]
   playlists?: PlaylistSummary[]
   onAction?: (action: ChatAction) => string | void
@@ -40,7 +42,7 @@ function extractAction(text: string): { clean: string; action: ChatAction | null
   }
 }
 
-export function useChat({ trackName, library, playlists, onAction }: UseChatOptions = {}) {
+export function useChat({ currentTrack, isPlaying, library, playlists, onAction }: UseChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const messagesRef = useRef<ChatMessage[]>([])
   const isLoadingRef = useRef(false)
@@ -67,7 +69,8 @@ export function useChat({ trackName, library, playlists, onAction }: UseChatOpti
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: apiMessages,
-          trackName: trackName ?? undefined,
+          currentTrack: currentTrack ?? null,
+          isPlaying: isPlaying ?? false,
           library,
           playlists,
         }),
@@ -104,7 +107,7 @@ export function useChat({ trackName, library, playlists, onAction }: UseChatOpti
       isLoadingRef.current = false
       setIsLoading(false)
     }
-  }, [trackName, library, playlists, onAction])
+  }, [currentTrack, isPlaying, library, playlists, onAction])
 
   const clearMessages = useCallback(() => { messagesRef.current = []; setMessages([]) }, [])
 

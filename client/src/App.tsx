@@ -312,35 +312,78 @@ function Player() {
   )
 
   const handleChatAction = useCallback((action: ChatAction): string | void => {
+    const cleanName = (t: Track) => t.originalName.replace(/\.[^.]+$/, '')
+    const findFavorites = () => playlists.find(p => p.name.toLowerCase() === 'favorites')
+
     if (action.type === 'play') {
       const track = tracks.find(t => t.id === action.trackId)
-      if (track) {
-        player.play(track)
-        return `Playing "${track.originalName.replace(/\.[^.]+$/, '')}".`
-      }
-      return 'Track not found in your library.'
-    } else if (action.type === 'search') {
-      if (!action.query) return
+      if (!track) return 'Couldn’t find that track in your library.'
+      player.play(track)
+      return `Playing “${cleanName(track)}”.`
+    }
+
+    if (action.type === 'search') {
+      if (!action.query) return 'I need search terms to look something up.'
       fetch(`/api/search?q=${encodeURIComponent(action.query)}`)
         .then(r => r.json())
         .then((data: SearchTrack[]) => { if (Array.isArray(data)) setSearchResults(data) })
         .catch(console.error)
-      return `Searching for "${action.query}"…`
-    } else if (action.type === 'add_to_playlist') {
-      const track = tracks.find(t => t.id === action.trackId)
-      if (track) {
-        const targetId = action.playlistId ?? defaultPlaylistId
-        const playlist = playlists.find(p => p.id === targetId)
-        addLocal(track, targetId)
-        return `Added to "${playlist?.name ?? 'your playlist'}".`
-      }
-      return 'Track not found in your library.'
+      return `Searching for “${action.query}”…`
     }
+
+    if (action.type === 'add_to_playlist') {
+      const track = tracks.find(t => t.id === action.trackId)
+      if (!track) return 'Couldn’t find that track in your library.'
+      const targetId = action.playlistId ?? defaultPlaylistId
+      const playlist = playlists.find(p => p.id === targetId)
+      addLocal(track, targetId)
+      return `Added “${cleanName(track)}” to “${playlist?.name ?? 'your playlist'}”.`
+    }
+
+    if (action.type === 'add_to_favorites') {
+      const track = tracks.find(t => t.id === action.trackId)
+      if (!track) return 'Couldn’t find that track in your library.'
+      const fav = findFavorites()
+      if (!fav) return 'You don’t have a Favorites playlist yet.'
+      addLocal(track, fav.id)
+      return `Added “${cleanName(track)}” to Favorites.`
+    }
+
+    if (action.type === 'pause') {
+      if (!player.currentTrack) return 'Nothing is playing.'
+      player.pause()
+      return 'Paused.'
+    }
+
+    if (action.type === 'resume') {
+      if (!player.currentTrack) return 'Nothing is playing.'
+      player.resume()
+      return 'Resumed.'
+    }
+
+    if (action.type === 'next') {
+      if (!player.currentTrack) return 'Nothing is playing.'
+      player.next()
+      return 'Skipped to next track.'
+    }
+
+    if (action.type === 'prev') {
+      if (!player.currentTrack) return 'Nothing is playing.'
+      player.prev()
+      return 'Went to previous track.'
+    }
+
+    return `Unknown action: ${action.type}.`
   }, [tracks, player, addLocal, defaultPlaylistId, playlists])
 
   const nowPlayingName = player.currentTrack
     ? player.currentTrack.originalName.replace(/\.[^.]+$/, '')
     : null
+
+  const chatCurrentTrack = useMemo(
+    () => player.currentTrack ? { id: player.currentTrack.id, name: nowPlayingName ?? player.currentTrack.id } : null,
+    [player.currentTrack, nowPlayingName]
+  )
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col items-center justify-start py-10 px-4 pb-28">
@@ -463,7 +506,8 @@ function Player() {
       <ChatWindow
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
-        trackName={nowPlayingName}
+        currentTrack={chatCurrentTrack}
+        isPlaying={player.isPlaying}
         library={library}
         playlists={playlistSummaries}
         onAction={handleChatAction}

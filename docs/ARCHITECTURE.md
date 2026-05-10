@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Last updated: 2026-04-25 (Session 7C)
+Last updated: 2026-05-07 (Post-7 Deezer cross-device + audio-on-logout fixes)
 
 ---
 
@@ -63,17 +63,19 @@ Vibe Player is a full-stack music player web app deployed on Vercel. The fronten
 │       │   ├── useChat.ts          ← Rolling 20-msg history; extractAction parser
 │       │   └── useQuota.ts         ← Fetches quota; exposes refresh callback
 │       └── utils/
-│           └── trackFilter.ts      ← Filter + sort helpers for TrackList
+│           ├── trackFilter.ts      ← Filter + sort helpers for TrackList
+│           └── deezer.ts           ← resolveDeezerUrl: re-mints expiring preview URL at play time
 ├── server/
 │   ├── db/
 │   │   ├── index.ts           ← Async query helpers; initDb(); getDb()
-│   │   ├── migrate.ts         ← Idempotent migration runner
+│   │   ├── migrate.ts         ← Idempotent migration runner (uses db.executeMultiple)
 │   │   └── migrations/
 │   │       ├── 001_create_users.sql
 │   │       ├── 002_create_playlists.sql
 │   │       ├── 003_create_playlist_tracks.sql
 │   │       ├── 004_create_uploaded_tracks.sql
-│   │       └── 005_add_indexes.sql
+│   │       ├── 005_add_indexes.sql
+│   │       └── 006_create_deezer_tracks.sql
 │   ├── samples/               ← Bundled royalty-free MP3s (served via stream endpoint)
 │   └── src/
 │       ├── app.ts             ← Express app; route registration; error middleware
@@ -83,8 +85,9 @@ Vibe Player is a full-stack music player web app deployed on Vercel. The fronten
 │       │   └── auth.ts        ← JWT cookie verification; attaches req.user
 │       └── routes/
 │           ├── auth.ts        ← /register, /login, /logout, /me
-│           ├── tracks.ts      ← GET /tracks, POST /upload, DELETE /:id, GET /:filename/stream
+│           ├── tracks.ts      ← GET /tracks, POST /upload, DELETE /:id, GET /:filename/stream, POST/DELETE /deezer
 │           ├── search.ts      ← GET /search?q= (Deezer proxy)
+│           ├── deezer.ts      ← GET /track/:id — fresh preview URL proxy (replaces expiring cached URL)
 │           ├── playlists.ts   ← CRUD for user playlists + track membership
 │           ├── quota.ts       ← GET /user/quota
 │           ├── chat.ts        ← POST /chat (Groq, rate-limited)
@@ -175,11 +178,14 @@ AuthProvider
 | POST | `/api/auth/login` | — | Issue JWT cookie |
 | POST | `/api/auth/logout` | — | Clear JWT cookie |
 | GET | `/api/auth/me` | cookie | Return current user |
-| GET | `/api/tracks` | optional | Samples always; user uploads appended when logged in |
+| GET | `/api/tracks` | optional | Samples always; user uploads + saved Deezer tracks appended when logged in (Deezer rows omit `externalUrl` on purpose — see Deezer flow below) |
 | POST | `/api/tracks/upload` | required | multer → quota check → Vercel Blob put → Turso insert |
 | DELETE | `/api/tracks/:id` | required | Delete blob + Turso row (ownership checked) |
 | GET | `/api/tracks/:filename/stream` | — | Stream sample MP3 from bundled `server/samples/` |
+| POST | `/api/tracks/deezer` | required | Save a Deezer track to the user's library (idempotent upsert in `deezer_tracks`) |
+| DELETE | `/api/tracks/deezer/:id` | required | Remove a Deezer track from the user's library (idempotent) |
 | GET | `/api/search?q=` | — | Deezer proxy; returns normalized `SearchTrack[]` |
+| GET | `/api/deezer/track/:id` | — | Proxies `https://api.deezer.com/track/{id}` and returns a fresh `previewUrl` (URLs are signed and expire — never cache long-term) |
 | GET | `/api/playlists` | required | List user's playlists |
 | POST | `/api/playlists` | required | Create playlist |
 | DELETE | `/api/playlists/:id` | required | Delete playlist |
@@ -217,6 +223,9 @@ cors
 | `getUploadedTrackById` | Look up single upload by UUID (ownership check) |
 | `deleteUploadedTrack` | Delete track row |
 | `getUserUploadedBytes` | `SUM(size)` for quota check |
+| `saveDeezerTrack` | Upsert a Deezer track for a user (`INSERT OR REPLACE` on composite PK `(id, user_id)`) |
+| `getDeezerTracksByUser` | List the user's saved Deezer tracks |
+| `deleteDeezerTrack` | Remove a Deezer track for a user (idempotent) |
 
 ---
 
@@ -270,11 +279,51 @@ FileUpload drag/drop → FormData → POST /api/tracks/upload
   → client: track appended to library; useQuota.refresh()
 ```
 
+### Deezer Library + Playback Flow
+
+```
+Search Deezer → user adds track to library
+  → POST /api/tracks/deezer { id, title, artist, albumArt, previewUrl, durationMs }
+  → INSERT OR REPLACE INTO deezer_tracks  (composite PK on id + user_id makes this idempotent)
+  → client: track appended to library state
+
+GET /api/tracks (authenticated)
+  → returns samples + uploaded_tracks rows + deezer_tracks rows
+  → Deezer rows are returned WITHOUT externalUrl on purpose
+    (the cached preview_url is volatile and would silently 404 in Howler)
+
+User clicks a Deezer track
+  → usePlayer.createAndPlay(track)
+  → resolveDeezerUrl(track) → GET /api/deezer/track/:id
+  → server proxies https://api.deezer.com/track/{id} → returns fresh `previewUrl`
+  → new Howl({ src: previewUrl, html5: true }) → play()
+  → currentTrackRef stays bound to the original track for queue lookup
+```
+
+The "resolve at play time" pattern exists because Deezer's CDN URLs are signed
+and expire (hours to days). A cached URL stored at "add to library" time would
+silently fail on a second device or after the token expires.
+
+### Auth State / Player Cleanup
+
+```
+User clicks Logout
+  → AuthContext.logout() → POST /api/auth/logout (clears cookie)
+  → AuthContext.user = null
+  → AuthGate switches: <Player> unmounts, <LoginPage> mounts
+  → usePlayer's useEffect cleanup runs: howlRef.current?.unload()
+  → audio stops; underlying <audio> element is destroyed
+```
+
+Without the unload-on-unmount cleanup, a `Howl` keeps an `<audio>` element alive
+even after its React component is gone — playback would continue with no UI to
+stop it. The cleanup is a single-line `useEffect` that runs on `usePlayer` unmount.
+
 ---
 
 ## Testing Strategy
 
-**Backend (Jest + Supertest)** — 54 tests across 7 files. Each test file uses `createClient({ url: ':memory:' })` with `await initDb(db)` in `beforeAll`/`beforeEach`. Route handlers are tested through the full Express app via Supertest — no unit mocks of Express layers. Auth tests use real bcrypt + JWT; Blob upload tests mock `@vercel/blob.put`.
+**Backend (Jest + Supertest)** — 9 test files. Each test file uses `createClient({ url: ':memory:' })` with `await initDb(db)` in `beforeAll`/`beforeEach`. Route handlers are tested through the full Express app via Supertest — no unit mocks of Express layers. Auth tests use real bcrypt + JWT; Blob upload tests mock `@vercel/blob.put`; Deezer endpoint tests mock `global.fetch`.
 
 | File | Covers |
 |---|---|
@@ -282,11 +331,13 @@ FileUpload drag/drop → FormData → POST /api/tracks/upload
 | `auth.test.ts` | Register, login, logout, /me, duplicate email |
 | `db.test.ts` | All DB helper functions (in-memory) |
 | `playlists.test.ts` | CRUD + track sync endpoints |
-| `tracks.test.ts` | Upload quota check; delete ownership; latin1→utf8 filename encoding |
+| `tracks.test.ts` | Upload quota; delete ownership; latin1→utf8 filename encoding; Deezer library save + delete; GET /api/tracks shape (no `externalUrl` on Deezer rows) |
+| `search.test.ts` | Deezer search proxy: 400 without `q`, success shape with `q` |
+| `deezer.test.ts` | `/api/deezer/track/:id`: 400 on non-numeric id, 200 with fresh `previewUrl`, 502 on Deezer 5xx, 404 on missing/error preview |
 | `quota.test.ts` | /api/user/quota: 401, 200 with used/limit/tier |
 | `chat.test.ts` | /api/chat: auth, rate limit (mocked Groq) |
 
-**Frontend (Vitest + React Testing Library)** — 49 tests across 10 files. Components are rendered with a `PlaylistProvider` + `AuthProvider` wrapper when needed. Howler.js is mocked globally in `test-setup.ts`. `localStorage` is reset between tests.
+**Frontend (Vitest + React Testing Library)** — 10 test files. Components are rendered with a `PlaylistProvider` + `AuthProvider` wrapper when needed. Howler.js is mocked globally in `test-setup.ts`. `localStorage` is reset between tests.
 
 | File | Covers |
 |---|---|
@@ -322,7 +373,9 @@ Browser
                               ├── Groq API ────────── AI chat inference
                               │     Key: GROQ_API_KEY (env var)
                               │
-                              └── Deezer public API ─ search proxy (no key required)
+                              └── Deezer public API ─ search proxy (/api/search) +
+                                                      track endpoint (/api/deezer/track/:id, fresh preview URL minting)
+                                                      No API key required
 ```
 
 ### Required Environment Variables

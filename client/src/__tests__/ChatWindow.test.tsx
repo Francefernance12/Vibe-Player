@@ -1,14 +1,16 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ChatWindow } from '../components/ChatWindow'
 
 // jsdom doesn't implement scrollIntoView
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
 
-// Prevent real fetch calls
-global.fetch = vi.fn().mockResolvedValue({
-  ok: true,
-  status: 200,
-  json: async () => ({ reply: 'Great question about music!' }),
+beforeEach(() => {
+  // Default fetch mock — overridden per-test where needed
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ reply: 'Great question about music!' }),
+  })
 })
 
 describe('ChatWindow', () => {
@@ -39,5 +41,23 @@ describe('ChatWindow', () => {
     render(<ChatWindow isOpen={true} onClose={onClose} />)
     fireEvent.click(screen.getByLabelText('Close'))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('shows the currently-playing track name in the header', () => {
+    render(<ChatWindow isOpen={true} onClose={() => {}} currentTrack={{ id: 't1', name: 'Bohemian Rhapsody' }} />)
+    expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument()
+  })
+
+  it('renders the action feedback note returned by onAction', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ reply: 'Adding it.\n<action>{"type":"add_to_favorites","trackId":"t1"}</action>' }),
+    })
+    const onAction = vi.fn().mockReturnValue('Added “Bohemian Rhapsody” to Favorites.')
+    render(<ChatWindow isOpen={true} onClose={() => {}} onAction={onAction} />)
+    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: 'favorite this' } })
+    fireEvent.click(screen.getByLabelText('Send'))
+    await waitFor(() => expect(screen.getByText(/Added .* to Favorites\./)).toBeInTheDocument())
   })
 })

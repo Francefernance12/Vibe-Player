@@ -350,3 +350,20 @@ The `⋮` context menu in `TrackList.tsx` was positioned with `right: window.inn
 - `App.tsx`'s load effect now branches on auth state: authenticated users hit the server only, and any pre-existing localStorage entries are migrated to the server once and then `localStorage.removeItem`-ed so they cannot resurrect deleted tracks. Unauthenticated users still get the localStorage-only path (no regression).
 
 **Why proxy on the server, not call Deezer directly from the browser?** The Deezer public API returns CORS headers that work, but routing through the server (a) reuses the existing pattern for `/api/search`, (b) keeps the Deezer dependency on the server side where it can be swapped or cached uniformly, and (c) avoids leaking direct Deezer API URLs into client code.
+
+---
+
+## Post-Phase 7 — Chat Assistant Polish (track-id anchoring + outcome notes)
+
+**Symptom that prompted the work.** The user reported that asking "add this song to favorites" while a track was playing would sometimes add a *different* track. Root cause: `buildSystemPrompt` only sent the track *name* (a display string), so the model had to name-match against the 40-track library list to derive a `trackId` — and on collisions or fuzzy matches it picked wrong. The dispatcher's `tracks.find(t => t.id === action.trackId)` then either silently missed or hit the wrong row.
+
+**Fixes (one polish increment, no architectural shift):**
+
+1. **Anchor the current track by ID in the system prompt.** The chat payload now carries `currentTrack: { id, name }` and `isPlaying: boolean`. `buildSystemPrompt` embeds both, plus an explicit instruction: "When the user refers to 'this song' or any pronoun about what is playing, you MUST use the id above as the trackId in your action — do not name-match." When nothing is playing, the prompt instructs the model to ask for clarification rather than guess.
+2. **Expanded action vocabulary.** Added `add_to_favorites` (sugar over `add_to_playlist` that routes to the Favorites playlist), and zero-arg `pause` / `resume` / `next` / `prev`. The dispatcher in `App.tsx`'s `handleChatAction` invokes the matching `usePlayer` methods.
+3. **Anti-hallucination rule.** Explicit: "The actions listed are the ONLY actions you can perform. If the user asks for anything else (create a playlist, change volume, edit a track), reply in plain text — do NOT invent an action tag."
+4. **Action outcome notes.** Every dispatch branch now returns a feedback string (success or failure). `useChat` was already wired to render `onAction`'s return value as a `kind: 'action'` message, which `ChatWindow` styles as a small italic centered note — the work was making every branch pass through that channel rather than silently no-oping.
+
+**Why not native tool calling?** Considered. Groq's structured-output / tool-calling support varies by model and we'd lose the model-portability of the regex-extracted `<action>` tag. The current parser already handles backtick-wrapped and code-fence-wrapped JSON, and the prompt is now grounded enough that the failure mode is no longer "wrong track" — it's "no action when one was warranted", which the user can correct in the next message. Switching to native tool calling stays on the wishlist for a future pass.
+
+**Tests added:** server-side assertions that the system prompt embeds `id: <id>`, contains the "use the id" instruction, lists every action type, and includes the anti-hallucination clause. Client-side `useChat.test.ts` covers the parser for the new action types plus the system-note append behaviour.
