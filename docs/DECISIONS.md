@@ -367,3 +367,21 @@ The `⋮` context menu in `TrackList.tsx` was positioned with `right: window.inn
 **Why not native tool calling?** Considered. Groq's structured-output / tool-calling support varies by model and we'd lose the model-portability of the regex-extracted `<action>` tag. The current parser already handles backtick-wrapped and code-fence-wrapped JSON, and the prompt is now grounded enough that the failure mode is no longer "wrong track" — it's "no action when one was warranted", which the user can correct in the next message. Switching to native tool calling stays on the wishlist for a future pass.
 
 **Tests added:** server-side assertions that the system prompt embeds `id: <id>`, contains the "use the id" instruction, lists every action type, and includes the anti-hallucination clause. Client-side `useChat.test.ts` covers the parser for the new action types plus the system-note append behaviour.
+
+---
+
+## Post-Phase 7 — Database transient error handling (Turso ECONNRESET)
+
+**Background.** Vercel runtime logs surfaced repeated `FetchError: request to https://*.turso.io/v2/pipeline failed, reason: read ECONNRESET` errors. Symptoms: random 500s with the generic `{ error: 'Internal server error' }` body, then traffic recovered on its own minutes later. Two issues compounded: (1) the central error middleware in `server/src/app.ts` collapsed every failure into 500 with no signal that it was a transient infrastructure problem, and (2) the React client mostly handled fetch failures with `.catch(console.error)`, so users saw nothing — playlist edits silently failed.
+
+**Resolution.**
+- New `server/db/retry.ts`: `isTransientDbError` recognizes `ECONNRESET`/`ETIMEDOUT`/`ENETUNREACH`/`ENOTFOUND`/`EAI_AGAIN`/`EPIPE`/`ECONNREFUSED`/`UND_ERR_SOCKET`, `FetchError`/`AbortError` by name, 5xx HTTP statuses, and recurses through `err.cause` (node-fetch wraps the underlying socket error there). `withDbRetry` runs the call, retries 2x on transient errors with `[150ms, 400ms]` backoff, then throws `DatabaseUnavailableError`.
+- Every `db.execute(...)` and `db.batch(...)` in `server/db/index.ts` is wrapped in `withDbRetry(() => …)`. Centralizing at the DB layer means routes don't need any per-handler changes.
+- Express error middleware now branches on `DatabaseUnavailableError` and returns `503` with `Retry-After: 5` and `{ error, retryable: true, code: 'DB_UNAVAILABLE' }`. The fallthrough log was upgraded to include `err.stack` and `err.code` so future Vercel runtime logs are diagnosable.
+- Client-side: new `client/src/contexts/NotificationContext.tsx` + `client/src/components/NotificationStack.tsx` (toast system, Tailwind, auto-dismisses after 6s, coalesces duplicates). New `client/src/utils/api.ts` `apiFetch` wrapper throws a typed `ApiError` on `503 + retryable:true` so call sites can decide whether to surface a toast. Migrated the silent-failure call sites in `client/src/contexts/PlaylistContext.tsx` (6 sync points) and `client/src/App.tsx` (track load, Deezer save, delete) — DB outages are now a visible toast, other failures still log to console.
+
+**Why retry at the DB layer, not per route.** Putting retry inside each helper keeps the policy in one place, doesn't touch any route handler, and applies uniformly to future helpers. Per-route retry would force every endpoint to import a wrapper and remember to use it.
+
+**Why short backoff and only two retries.** Turso flakes either resolve immediately (the typical case) or persist for minutes. Long waits stretch a bad UX without helping. Two retries with 150ms+400ms covers the common case and surfaces the persistent case in under 600ms.
+
+**Why `apiFetch` is opt-in.** Existing call sites that use raw `fetch` keep working — there's no global swap. We migrated only the silent-failure sites because those are the ones whose UX is improved by surfacing the structured 503. Auth fetches in `AuthContext` already throw their own typed errors and don't need the wrapper.

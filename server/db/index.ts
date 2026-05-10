@@ -1,5 +1,6 @@
 import { createClient, Client, Row } from '@libsql/client'
 import { runMigrations } from './migrate'
+import { withDbRetry } from './retry'
 import type { DbTrackSource } from '../../shared/types'
 
 // --- Types ---
@@ -66,7 +67,7 @@ export function getDb(): Client {
 /** Run PRAGMA + migrations. Call once at server startup. */
 export async function initDb(db?: Client): Promise<void> {
   const client = db ?? getDb()
-  await client.execute('PRAGMA foreign_keys = ON')
+  await withDbRetry(() => client.execute('PRAGMA foreign_keys = ON'))
   await runMigrations(client)
 }
 
@@ -79,20 +80,20 @@ export function createMemoryDb(): Client {
 
 export async function createUser(db: Client, user: Omit<DbUser, 'created_at'>): Promise<DbUser> {
   const created_at = new Date().toISOString()
-  await db.execute({
+  await withDbRetry(() => db.execute({
     sql: 'INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)',
     args: [user.id, user.email, user.password_hash, created_at],
-  })
+  }))
   return { ...user, created_at }
 }
 
 export async function getUserByEmail(db: Client, email: string): Promise<DbUser | null> {
-  const { rows } = await db.execute({ sql: 'SELECT * FROM users WHERE email = ?', args: [email] })
+  const { rows } = await withDbRetry(() => db.execute({ sql: 'SELECT * FROM users WHERE email = ?', args: [email] }))
   return rows.length ? toDbUser(rows[0]) : null
 }
 
 export async function getUserById(db: Client, id: string): Promise<DbUser | null> {
-  const { rows } = await db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] })
+  const { rows } = await withDbRetry(() => db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] }))
   return rows.length ? toDbUser(rows[0]) : null
 }
 
@@ -100,28 +101,28 @@ export async function getUserById(db: Client, id: string): Promise<DbUser | null
 
 export async function createPlaylist(db: Client, playlist: Omit<DbPlaylist, 'created_at'>): Promise<DbPlaylist> {
   const created_at = new Date().toISOString()
-  await db.execute({
+  await withDbRetry(() => db.execute({
     sql: 'INSERT INTO playlists (id, user_id, name, created_at) VALUES (?, ?, ?, ?)',
     args: [playlist.id, playlist.user_id, playlist.name, created_at],
-  })
+  }))
   return { ...playlist, created_at }
 }
 
 export async function getPlaylistsByUser(db: Client, userId: string): Promise<DbPlaylist[]> {
-  const { rows } = await db.execute({
+  const { rows } = await withDbRetry(() => db.execute({
     sql: 'SELECT * FROM playlists WHERE user_id = ? ORDER BY created_at ASC',
     args: [userId],
-  })
+  }))
   return rows.map(toDbPlaylist)
 }
 
 export async function getPlaylistById(db: Client, id: string): Promise<DbPlaylist | null> {
-  const { rows } = await db.execute({ sql: 'SELECT * FROM playlists WHERE id = ?', args: [id] })
+  const { rows } = await withDbRetry(() => db.execute({ sql: 'SELECT * FROM playlists WHERE id = ?', args: [id] }))
   return rows.length ? toDbPlaylist(rows[0]) : null
 }
 
 export async function deletePlaylist(db: Client, id: string): Promise<void> {
-  await db.execute({ sql: 'DELETE FROM playlists WHERE id = ?', args: [id] })
+  await withDbRetry(() => db.execute({ sql: 'DELETE FROM playlists WHERE id = ?', args: [id] }))
 }
 
 export interface PlaylistWithTracks {
@@ -135,7 +136,7 @@ export interface PlaylistWithTracks {
  * eliminating the N+1 pattern of fetching tracks per playlist separately.
  */
 export async function getPlaylistsWithTracks(db: Client, userId: string): Promise<PlaylistWithTracks[]> {
-  const { rows } = await db.execute({
+  const { rows } = await withDbRetry(() => db.execute({
     sql: `SELECT p.id AS playlist_id, p.name, p.created_at,
                  pt.track_data, pt.position
           FROM playlists p
@@ -143,7 +144,7 @@ export async function getPlaylistsWithTracks(db: Client, userId: string): Promis
           WHERE p.user_id = ?
           ORDER BY p.created_at ASC, pt.position ASC`,
     args: [userId],
-  })
+  }))
 
   // Reconstruct grouped shape from flat JOIN rows
   const map = new Map<string, PlaylistWithTracks>()
@@ -187,35 +188,35 @@ function toDbUploadedTrack(r: Row): DbUploadedTrack {
 
 export async function createUploadedTrack(db: Client, track: Omit<DbUploadedTrack, 'created_at'>): Promise<DbUploadedTrack> {
   const created_at = new Date().toISOString()
-  await db.execute({
+  await withDbRetry(() => db.execute({
     sql: 'INSERT INTO uploaded_tracks (id, user_id, filename, original_name, mime_type, size, blob_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     args: [track.id, track.user_id, track.filename, track.original_name, track.mime_type, track.size, track.blob_url, created_at],
-  })
+  }))
   return { ...track, created_at }
 }
 
 export async function getUploadedTracksByUser(db: Client, userId: string): Promise<DbUploadedTrack[]> {
-  const { rows } = await db.execute({
+  const { rows } = await withDbRetry(() => db.execute({
     sql: 'SELECT * FROM uploaded_tracks WHERE user_id = ? ORDER BY created_at ASC',
     args: [userId],
-  })
+  }))
   return rows.map(toDbUploadedTrack)
 }
 
 export async function getUploadedTrackById(db: Client, id: string): Promise<DbUploadedTrack | null> {
-  const { rows } = await db.execute({ sql: 'SELECT * FROM uploaded_tracks WHERE id = ?', args: [id] })
+  const { rows } = await withDbRetry(() => db.execute({ sql: 'SELECT * FROM uploaded_tracks WHERE id = ?', args: [id] }))
   return rows.length ? toDbUploadedTrack(rows[0]) : null
 }
 
 export async function deleteUploadedTrack(db: Client, id: string): Promise<void> {
-  await db.execute({ sql: 'DELETE FROM uploaded_tracks WHERE id = ?', args: [id] })
+  await withDbRetry(() => db.execute({ sql: 'DELETE FROM uploaded_tracks WHERE id = ?', args: [id] }))
 }
 
 export async function getUserUploadedBytes(db: Client, userId: string): Promise<number> {
-  const { rows } = await db.execute({
+  const { rows } = await withDbRetry(() => db.execute({
     sql: 'SELECT COALESCE(SUM(size), 0) AS total FROM uploaded_tracks WHERE user_id = ?',
     args: [userId],
-  })
+  }))
   return Number(rows[0].total)
 }
 
@@ -249,49 +250,49 @@ function toDbDeezerTrack(r: Row): DbDeezerTrack {
 
 export async function saveDeezerTrack(db: Client, track: Omit<DbDeezerTrack, 'created_at'>): Promise<DbDeezerTrack> {
   const created_at = new Date().toISOString()
-  await db.execute({
+  await withDbRetry(() => db.execute({
     sql: 'INSERT OR REPLACE INTO deezer_tracks (id, user_id, title, artist, album_art, preview_url, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     args: [track.id, track.user_id, track.title, track.artist, track.album_art, track.preview_url, track.duration_ms, created_at],
-  })
+  }))
   return { ...track, created_at }
 }
 
 export async function getDeezerTracksByUser(db: Client, userId: string): Promise<DbDeezerTrack[]> {
-  const { rows } = await db.execute({
+  const { rows } = await withDbRetry(() => db.execute({
     sql: 'SELECT * FROM deezer_tracks WHERE user_id = ? ORDER BY created_at ASC',
     args: [userId],
-  })
+  }))
   return rows.map(toDbDeezerTrack)
 }
 
 export async function deleteDeezerTrack(db: Client, id: string, userId: string): Promise<void> {
-  await db.execute({
+  await withDbRetry(() => db.execute({
     sql: 'DELETE FROM deezer_tracks WHERE id = ? AND user_id = ?',
     args: [id, userId],
-  })
+  }))
 }
 
 // --- Playlist tracks ---
 
 export async function getTracksByPlaylist(db: Client, playlistId: string): Promise<DbPlaylistTrack[]> {
-  const { rows } = await db.execute({
+  const { rows } = await withDbRetry(() => db.execute({
     sql: 'SELECT * FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC',
     args: [playlistId],
-  })
+  }))
   return rows.map(toDbPlaylistTrack)
 }
 
 export async function addTrackToPlaylist(db: Client, track: Omit<DbPlaylistTrack, 'added_at'>): Promise<DbPlaylistTrack> {
   const added_at = new Date().toISOString()
-  await db.execute({
+  await withDbRetry(() => db.execute({
     sql: 'INSERT INTO playlist_tracks (id, playlist_id, position, source, track_data, added_at) VALUES (?, ?, ?, ?, ?, ?)',
     args: [track.id, track.playlist_id, track.position, track.source, track.track_data, added_at],
-  })
+  }))
   return { ...track, added_at }
 }
 
 export async function removeTrackFromPlaylist(db: Client, trackId: string): Promise<void> {
-  await db.execute({ sql: 'DELETE FROM playlist_tracks WHERE id = ?', args: [trackId] })
+  await withDbRetry(() => db.execute({ sql: 'DELETE FROM playlist_tracks WHERE id = ?', args: [trackId] }))
 }
 
 /**
@@ -308,11 +309,11 @@ export async function replacePlaylistTracks(
   tracks: Omit<DbPlaylistTrack, 'added_at'>[]
 ): Promise<void> {
   const now = new Date().toISOString()
-  await db.batch([
+  await withDbRetry(() => db.batch([
     { sql: 'DELETE FROM playlist_tracks WHERE playlist_id = ?', args: [playlistId] },
     ...tracks.map(t => ({
       sql: 'INSERT INTO playlist_tracks (id, playlist_id, position, source, track_data, added_at) VALUES (?, ?, ?, ?, ?, ?)',
       args: [t.id, t.playlist_id, t.position, t.source, t.track_data, now],
     })),
-  ], 'write')
+  ], 'write'))
 }

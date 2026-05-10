@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { TrackList } from '../components/TrackList'
 import { AuthProvider } from '../contexts/AuthContext'
+import { NotificationProvider } from '../contexts/NotificationContext'
 import { PlaylistProvider } from '../contexts/PlaylistContext'
 import { Track } from '../types'
 
@@ -16,7 +17,7 @@ const TRACKS: Track[] = [
 ]
 
 function wrap(ui: React.ReactElement) {
-  return render(<AuthProvider><PlaylistProvider>{ui}</PlaylistProvider></AuthProvider>)
+  return render(<NotificationProvider><AuthProvider><PlaylistProvider>{ui}</PlaylistProvider></AuthProvider></NotificationProvider>)
 }
 
 test('renders the correct number of items from mock data', () => {

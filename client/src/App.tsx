@@ -19,6 +19,9 @@ import { StorageBar } from './components/StorageBar'
 import { PricingPage } from './components/PricingPage'
 import { useQuota } from './hooks/useQuota'
 import { filterAndSortTracks, SortOption } from './utils/trackFilter'
+import { NotificationStack } from './components/NotificationStack'
+import { useNotify } from './contexts/NotificationContext'
+import { apiFetch, isDbUnavailable } from './utils/api'
 
 const DEEZER_TRACKS_KEY = 'deezer-library-tracks'
 
@@ -132,6 +135,7 @@ function Player() {
   const [showPricing, setShowPricing] = useState(false)
   const { quota, refresh: refreshQuota } = useQuota()
   const { playlists, addLocal, defaultPlaylistId, removeTrackFromAllPlaylists } = usePlaylist()
+  const notify = useNotify()
   const searchContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -174,7 +178,7 @@ function Player() {
         }
       }
       try {
-        const r = await fetch('/api/tracks')
+        const r = await apiFetch('/api/tracks')
         const data = await r.json() as Track[]
         if (cancelled) return
         if (user) {
@@ -188,13 +192,14 @@ function Player() {
           setTracks(merged)
         }
       } catch (err) {
-        console.error(err)
+        if (isDbUnavailable(err)) notify({ type: 'error', message: err.message })
+        else console.error(err)
       } finally {
         if (!cancelled) setLoading(false)
       }
     })()
     return () => { cancelled = true }
-  }, [user])
+  }, [user, notify])
 
   const visibleTracks = useMemo(
     () => filterAndSortTracks(tracks, filterText, sortOption),
@@ -240,7 +245,7 @@ function Player() {
     if (!added) return
     if (user) {
       try {
-        const res = await fetch('/api/tracks/deezer', {
+        const res = await apiFetch('/api/tracks/deezer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -254,7 +259,8 @@ function Player() {
         })
         if (!res.ok) throw new Error(`status ${res.status}`)
       } catch (err) {
-        console.error('Failed to save Deezer track to server:', err)
+        if (isDbUnavailable(err)) notify({ type: 'error', message: err.message })
+        else { console.error('Failed to save Deezer track to server:', err); notify({ type: 'error', message: 'Could not save track. Please try again.' }) }
         setTracks(prev => prev.filter(t => t.id !== track.id))
       }
     } else {
@@ -264,31 +270,35 @@ function Player() {
         return next
       })
     }
-  }, [user])
+  }, [user, notify])
 
   const handleDeleteTrack = useCallback(async (track: Track) => {
     if (track.source === 'upload') {
       try {
-        const res = await fetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+        const res = await apiFetch(`/api/tracks/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
           console.error('Delete failed:', body?.error ?? res.status)
+          notify({ type: 'error', message: body?.error ?? 'Could not delete track.' })
           return
         }
       } catch (err) {
-        console.error('Delete request failed:', err)
+        if (isDbUnavailable(err)) notify({ type: 'error', message: err.message })
+        else { console.error('Delete request failed:', err); notify({ type: 'error', message: 'Could not delete track. Please try again.' }) }
         return
       }
       refreshQuota()
     } else if (track.source === 'deezer' && user) {
       try {
-        const res = await fetch(`/api/tracks/deezer/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
+        const res = await apiFetch(`/api/tracks/deezer/${encodeURIComponent(track.id)}`, { method: 'DELETE' })
         if (!res.ok) {
           console.error('Delete Deezer track failed:', res.status)
+          notify({ type: 'error', message: 'Could not delete track.' })
           return
         }
       } catch (err) {
-        console.error('Delete Deezer track request failed:', err)
+        if (isDbUnavailable(err)) notify({ type: 'error', message: err.message })
+        else { console.error('Delete Deezer track request failed:', err); notify({ type: 'error', message: 'Could not delete track. Please try again.' }) }
         return
       }
     }
@@ -299,7 +309,7 @@ function Player() {
     })
     removeTrackFromAllPlaylists(track.id)
     if (player.currentTrack?.filename === track.filename) player.stop()
-  }, [player, refreshQuota, removeTrackFromAllPlaylists, user])
+  }, [player, refreshQuota, removeTrackFromAllPlaylists, user, notify])
 
   const library = useMemo(
     () => tracks.map(t => ({ id: t.id, name: t.originalName.replace(/\.[^.]+$/, '') })).slice(0, 40),
@@ -551,6 +561,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AuthGate />
+      <NotificationStack />
     </AuthProvider>
   )
 }
