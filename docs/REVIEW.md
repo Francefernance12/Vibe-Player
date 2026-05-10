@@ -1279,3 +1279,60 @@ If `add_to_favorites` fires `addLocal(track, fav.id)` and the server sync that f
 ## Conclusion
 
 The change is focused, the tests are commensurate, and the system-prompt anchoring should resolve the user's "wrong song" complaint cleanly — the model no longer has to guess which track "this" refers to. The five flagged issues are all small (style, dead code, edge-case fallbacks) and none of them block shipping. Recommended: merge as-is and address Issues #1–#4 in a small follow-up patch.
+
+---
+
+## Review: feat/db-transient-error-handling — 2026-05-10
+
+**Reviewer**: Manual review (opencode CLI hung on interactive startup, fell back to manual per documented procedure).
+**Branch**: `feat/db-transient-error-handling`
+**Commit**: `cb769e8`
+**Diff**: 16 files changed, 758 insertions, 70 deletions.
+
+### What changed
+
+End-to-end handling for transient Turso/libSQL outages (the `FetchError: read ECONNRESET` against `*.turso.io/v2/pipeline` errors observed in Vercel runtime logs).
+
+**Backend**
+- `server/db/retry.ts` (new): `isTransientDbError`, `DatabaseUnavailableError`, `withDbRetry` (2 retries with `[150ms, 400ms]` backoff). Detects `ECONNRESET`/`ETIMEDOUT`/`ENETUNREACH`/`ENOTFOUND`/`EAI_AGAIN`/`EPIPE`/`ECONNREFUSED`/`UND_ERR_SOCKET`, `FetchError`/`AbortError`, 5xx HTTP statuses, and recurses through `err.cause` (where node-fetch wraps the underlying socket error).
+- `server/db/index.ts`: every `db.execute` and `db.batch` call wrapped centrally in `withDbRetry(() => …)`.
+- `server/src/app.ts`: error middleware now branches on `DatabaseUnavailableError` and returns `503` with `Retry-After: 5` and `{ error, retryable: true, code: 'DB_UNAVAILABLE' }`. Generic 500 branch upgraded to log full stack + `err.code`.
+- New tests: `dbRetry.test.ts` (16) + `errorHandler.test.ts` (2).
+
+**Frontend**
+- `client/src/contexts/NotificationContext.tsx` + `client/src/components/NotificationStack.tsx` (new): minimal toast system, Tailwind styling, 6s default TTL, dedupes by `(type, message)`, auto-cleanup on unmount.
+- `client/src/utils/api.ts` (new): `apiFetch` thin wrapper that defaults `credentials: 'include'` and throws a typed `ApiError` only on `503 + retryable:true` (other statuses pass through unchanged so existing call-site logic is preserved).
+- `client/src/main.tsx`: wraps app in `NotificationProvider`.
+- `client/src/App.tsx`: renders `NotificationStack`, surfaces 503s as toasts in the track-load effect, Deezer save handler, and delete handler.
+- `client/src/contexts/PlaylistContext.tsx`: six previously silent `.catch(console.error)` sites now route through a `handleSyncError` that toasts on `DB_UNAVAILABLE` and logs+toasts a generic message otherwise.
+- Test wrappers in `PlaylistContext.test.tsx` and `TrackList.test.tsx` updated to include `NotificationProvider`.
+
+### Verification
+- 84 server tests pass (Jest).
+- 55 client tests pass (Vitest).
+- `npm --prefix client run build` succeeds.
+- `tsc --noEmit` clean on the server.
+
+### Issues spotted
+
+1. **Initial `auth/me` `fetch('/api/auth/me')` not migrated.** `AuthContext` still uses raw `fetch`. If the DB is down at app load, the user's session check returns 503 but no toast is shown — they just appear "logged out." Low impact because the rest of the UI still works for guests, but worth migrating to `apiFetch` in a follow-up.
+
+2. **`apiFetch` doesn't propagate `Retry-After` to the caller.** The server sends `Retry-After: 5` but the toast and `ApiError` don't carry it. We could add `retryAfterSec` to `ApiError` so a future "retry now" button or auto-retry could use it. Not blocking — current UX (user manually retries) is fine.
+
+3. **`PRAGMA foreign_keys = ON` is wrapped in `withDbRetry`.** This runs once at startup; if Turso is down at boot, we'll surface a `DatabaseUnavailableError` from `initDb`. That's actually the right behavior in serverless (the function fails cold-start cleanly), but worth flagging in case anyone wonders why startup work is wrapped.
+
+4. **Tests don't exercise the wrapped `db.execute` paths.** `dbRetry.test.ts` covers `withDbRetry` directly; the existing `db.test.ts` runs against in-memory libSQL (which never throws transient errors). There's no end-to-end test that proves a transient throw at the `db.execute` boundary correctly bubbles up as `DatabaseUnavailableError` through the wrappers in `server/db/index.ts`. The unit test is sufficient because the wrapping is mechanical (`withDbRetry(() => db.execute(...))`), but a single integration test mocking `db.execute` to throw `ECONNRESET` would be cheap insurance.
+
+5. **`handleSyncError` toast text is generic across all six sync sites.** All show "Could not save your playlist changes." — fine for users but loses some debugging signal. Logging is preserved for non-DB errors, so this is acceptable.
+
+6. **`docs/private/` is untracked and intentionally not committed.** Verified it's not in this changeset.
+
+### Suggestions (non-blocking)
+
+- Migrate `AuthContext` and `useChat`/`useQuota` fetches to `apiFetch` in a follow-up so DB outages during auth check / quota poll also surface as toasts.
+- Consider adding `retryAfterSec` to `ApiError` and an optional auto-retry path in `apiFetch` for idempotent reads (GET only). Would further reduce user-visible failures.
+- Add a single integration test that monkey-patches `db.execute` on an in-memory client to throw `ECONNRESET` once, then asserts the wrapped helper succeeds on retry. ~15 lines of test code.
+
+### Conclusion
+
+The change cleanly addresses the original symptom (silent 500s on Turso ECONNRESET) without introducing per-route changes and keeps the retry policy in one place. Tests, build, and typecheck all pass. Safe to merge after review of items 1 and 4 above.
