@@ -347,6 +347,7 @@ This file is the first thing any agent or collaborator should read to understand
 | 7C | 2026-04-25 | `client/src/types.ts` divergence resolved; dead exports cleaned; encoding fix for non-ASCII filenames; data consistency bug in `handleDeleteTrack` | ✅ Fixed |
 | Post-7 | 2026-05-05 | Deezer library: PR #26 stored stale preview URLs and let localStorage resurrect deleted tracks | ✅ Reverted + redone: `/api/deezer/track/:id` resolves fresh URL at play time; localStorage migrated and cleared for authed users |
 | Post-7 | 2026-05-09 | Chat assistant occasionally favorited the wrong track ("this song" was name-matched, not ID-anchored); narrow action vocab; silent dispatch failures | ✅ Fixed: chat payload carries `currentTrack: {id, name}` + `isPlaying`; system prompt instructs model to use the id for pronouns; new actions `add_to_favorites`, `pause`, `resume`, `next`, `prev`; every dispatch branch returns a feedback string rendered as a system note in `ChatWindow` |
+| Post-7 | 2026-05-10 | Turso ECONNRESET errors surfaced as generic 500s and silent client-side `.catch(console.error)` failures | ✅ Fixed: DB layer auto-retries transient errors; exhausted retries -> 503 with `Retry-After` + `retryable:true`; new toast system surfaces DB outages instead of swallowing them |
 
 ---
 
@@ -360,3 +361,22 @@ This file is the first thing any agent or collaborator should read to understand
 - ✅ `client/src/__tests__/useChat.test.ts` — new file, six tests covering parser + system-note appending + payload shape
 - ✅ `client/src/__tests__/ChatWindow.test.tsx` — extended for header rendering of `currentTrack.name` and end-to-end action-note rendering after a mocked reply
 - ✅ 57 client + 69 server = 126 tests pass
+
+---
+
+### Session — Database transient error handling ✅ COMPLETE (2026-05-10)
+
+- ✅ `server/db/retry.ts` — `isTransientDbError`, `DatabaseUnavailableError`, `withDbRetry` with `[150ms, 400ms]` backoff
+- ✅ `server/db/index.ts` — every `db.execute`/`db.batch` wrapped in `withDbRetry`
+- ✅ `server/src/app.ts` — error middleware classifies `DatabaseUnavailableError` -> 503 + `Retry-After: 5` + structured body; fallthrough log now includes stack + code
+- ✅ `server/src/__tests__/dbRetry.test.ts` — 16 tests for classification + retry behavior
+- ✅ `server/src/__tests__/errorHandler.test.ts` — Supertest cover for 503 + 500 branches
+- ✅ `client/src/contexts/NotificationContext.tsx` — toast system with TTL + dedup
+- ✅ `client/src/components/NotificationStack.tsx` — Tailwind toast renderer (bottom-right)
+- ✅ `client/src/utils/api.ts` — `apiFetch` wrapper, `ApiError`, `isDbUnavailable`, `handleDbError`
+- ✅ `client/src/main.tsx` — `NotificationProvider` mounted around `App`
+- ✅ `client/src/App.tsx` — `NotificationStack` rendered; `useNotify` wired into Player; track load/save/delete now surface 503 as toast
+- ✅ `client/src/contexts/PlaylistContext.tsx` — 6 silent `.catch(console.error)` sites replaced with notification-aware `handleSyncError`
+- ✅ `client/src/__tests__/NotificationContext.test.tsx` — 6 tests for notify + auto-dismiss + coalescing + manual dismiss
+- ✅ `client/src/__tests__/PlaylistContext.test.tsx`, `TrackList.test.tsx` — wrappers updated to include `NotificationProvider`
+- ✅ 84 server + 55 client = 139 tests pass; client `npm run build` succeeds; server `tsc --noEmit` clean

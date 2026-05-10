@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
+import { DatabaseUnavailableError } from '../db/retry';
 import healthRouter from './routes/health';
 import tracksRouter from './routes/tracks';
 import searchRouter from './routes/search';
@@ -32,7 +33,20 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     res.status(413).json({ error: 'File too large. Maximum size is 50 MB.' });
     return;
   }
-  console.error(err.message);
+  if (err instanceof DatabaseUnavailableError) {
+    console.error('[DB_UNAVAILABLE]', err.message, err.cause);
+    res.status(503)
+      .set('Retry-After', '5')
+      .json({
+        error: 'Our database is temporarily unavailable. This is a server-side issue, not your fault. Please try again in a moment.',
+        retryable: true,
+        code: 'DB_UNAVAILABLE',
+      });
+    return;
+  }
+  // Log full stack + code so transient infra issues are diagnosable in Vercel runtime logs.
+  const code = (err as Error & { code?: string }).code;
+  console.error(code ? `[${code}]` : '[ERR]', err.stack ?? err.message);
   res.status(500).json({ error: 'Internal server error' });
 });
 

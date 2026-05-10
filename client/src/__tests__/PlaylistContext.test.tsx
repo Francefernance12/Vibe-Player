@@ -1,5 +1,6 @@
 import { render, act } from '@testing-library/react'
 import { AuthProvider } from '../contexts/AuthContext'
+import { NotificationProvider } from '../contexts/NotificationContext'
 import { PlaylistProvider, usePlaylist, LOCAL_FAVORITES_ID } from '../contexts/PlaylistContext'
 import { Track, SearchTrack } from '../types'
 
@@ -21,9 +22,11 @@ function Harness({ fn }: { fn: (ctx: ReturnType<typeof usePlaylist>) => void }) 
 
 function setup(fn: (ctx: ReturnType<typeof usePlaylist>) => void) {
   return render(
-    <AuthProvider>
-      <PlaylistProvider><Harness fn={fn} /></PlaylistProvider>
-    </AuthProvider>
+    <NotificationProvider>
+      <AuthProvider>
+        <PlaylistProvider><Harness fn={fn} /></PlaylistProvider>
+      </AuthProvider>
+    </NotificationProvider>
   )
 }
 
