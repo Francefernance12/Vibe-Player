@@ -14,7 +14,7 @@ The database is a **Turso-hosted libSQL instance**, accessed via the `@libsql/cl
 
 | Environment | Connection |
 |---|---|
-| Production (Vercel) | `libsql://…turso.io` via `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` env vars |
+| Production (Vercel) | `libsql://…turso.io` via `TURSO_URL` + `TURSO_AUTH_TOKEN` env vars |
 | Local development | Falls back to `file:./music.db` (local SQLite file) if `TURSO_URL` is not set |
 | Tests | `createClient({ url: ':memory:' })` — isolated in-memory DB, never touches production |
 
@@ -127,6 +127,45 @@ CREATE TABLE IF NOT EXISTS uploaded_tracks (
 
 ---
 
+### `deezer_tracks`
+
+A user's saved Deezer search tracks. Stores display metadata and the Deezer track ID.
+The composite primary key `(id, user_id)` lets the same Deezer track be saved by
+multiple users without conflict and makes `INSERT OR REPLACE` idempotent per-user.
+
+```sql
+CREATE TABLE IF NOT EXISTS deezer_tracks (
+  id          TEXT NOT NULL,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  artist      TEXT NOT NULL,
+  album_art   TEXT,
+  preview_url TEXT,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (id, user_id)
+);
+```
+
+| Column | Type | Notes |
+|---|---|---|
+| id | TEXT | Deezer-issued numeric track ID (kept as TEXT for consistency with other IDs) |
+| user_id | TEXT | Foreign key to `users`; cascades on user delete |
+| title | TEXT | Track title from Deezer |
+| artist | TEXT | Artist name from Deezer |
+| album_art | TEXT | Optional album cover URL |
+| preview_url | TEXT | **Cached at save time only — DO NOT use as authoritative.** Deezer's signed CDN URLs expire (hours to days). Always re-fetch a fresh URL via `GET /api/deezer/track/:id` at play time |
+| duration_ms | INTEGER | Track duration in milliseconds (informational) |
+| created_at | TEXT | ISO string |
+
+> **Why `preview_url` is not authoritative**: A previous attempt (PR #26) treated the
+> stored URL as the playback source. Tokens in those URLs expired silently, so
+> Howler would fail to load the audio on a second device or after a few days.
+> The corrected design stores the Deezer ID and re-mints the preview URL on
+> every play through the `/api/deezer/track/:id` proxy endpoint.
+
+---
+
 ## Track Data JSON Shapes
 
 These are the expected shapes stored in `playlist_tracks.track_data`.
@@ -161,11 +200,12 @@ Parse with `JSON.parse()` server-side when reading.
 ```
 users ──< playlists ──< playlist_tracks
 users ──< uploaded_tracks
+users ──< deezer_tracks
 ```
 
-- One user has many playlists and many uploaded tracks
+- One user has many playlists, uploaded tracks, and saved Deezer tracks
 - One playlist has many playlist_tracks
-- Deleting a user cascades to their playlists, playlist_tracks, and uploaded_tracks
+- Deleting a user cascades to their playlists, playlist_tracks, uploaded_tracks, and deezer_tracks
 - Deleting a playlist cascades to its playlist_tracks
 
 ---
@@ -173,15 +213,23 @@ users ──< uploaded_tracks
 ## Indexes
 
 libSQL (Turso) creates an index automatically for `UNIQUE` and `PRIMARY KEY` constraints.
-Additional indexes to add if query performance becomes a concern:
+The following secondary indexes are applied via migration `005_add_indexes.sql`:
 
 ```sql
-CREATE INDEX idx_playlists_user_id ON playlists(user_id);
-CREATE INDEX idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
-CREATE INDEX idx_uploaded_tracks_user_id ON uploaded_tracks(user_id);
+CREATE INDEX IF NOT EXISTS idx_playlists_user_id ON playlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist_id ON playlist_tracks(playlist_id);
+CREATE INDEX IF NOT EXISTS idx_uploaded_tracks_user_id ON uploaded_tracks(user_id);
 ```
 
-Not required at current scale but documented here for future reference.
+Each one accelerates the common user-scoped lookup pattern (`WHERE user_id = ?` /
+`WHERE playlist_id = ?`). They are precautionary at current data volumes but
+prevent full-table scans as the database grows.
+
+> **Note on multi-statement migrations**: `@libsql/client`'s `db.execute()` only
+> runs the first statement in a semicolon-separated SQL string — subsequent
+> statements are silently ignored. The runner uses `db.executeMultiple()` so
+> migrations like `005_add_indexes.sql` (three `CREATE INDEX` statements) are
+> applied correctly.
 
 ---
 
@@ -195,6 +243,8 @@ server/db/migrations/
   002_create_playlists.sql
   003_create_playlist_tracks.sql
   004_create_uploaded_tracks.sql
+  005_add_indexes.sql
+  006_create_deezer_tracks.sql
 ```
 
 ---
@@ -204,4 +254,5 @@ server/db/migrations/
 - **Audio file bytes** — stored on Vercel Blob CDN (uploaded tracks) or bundled in `server/samples/` (sample tracks)
 - **Session tokens** — stored as signed JWTs in httpOnly cookies, not in the DB
 - **Search results** — fetched live from Deezer, not cached
-- **Deezer library tracks** — stored in browser `localStorage` under `deezer-library-tracks` (client-only persistence)
+- **Authoritative Deezer preview URLs** — Deezer's signed CDN URLs expire. The cached `deezer_tracks.preview_url` exists only as opportunistic metadata; clients always re-fetch a fresh URL via `GET /api/deezer/track/:id` at play time
+- **Unauthenticated user state** — anonymous users keep playlists in `localStorage` (`playlists:v2`); a one-shot migration writes any legacy local Deezer entries to the server on first authenticated load and then clears localStorage to prevent zombie reappearance after deletes

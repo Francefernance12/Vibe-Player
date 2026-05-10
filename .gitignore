@@ -9,3 +9,6 @@ client/dist/
 
 .vercel
 .env*.local
+
+# Private interview prep notes — for the developer only, never committed.
+docs/private/
